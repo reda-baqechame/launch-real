@@ -54,6 +54,31 @@ export interface AuditRequest {
   audience?: string;
 }
 
+export interface RecapResult {
+  title: string;
+  summary: string;
+  chapters: { time: string; label: string }[];
+}
+
+/** Turns a recording's narration + duration into title/summary/chapters. */
+export async function fetchRecap(input: {
+  notes: string;
+  durationSec: number;
+}): Promise<RecapResult> {
+  const key = getKey();
+  if (!key) throw new Error("No Anthropic key connected.");
+  const res = await fetch("/api/recap", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-anthropic-key": key },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || `Recap failed (${res.status}).`);
+  }
+  return (await res.json()) as RecapResult;
+}
+
 export interface CopyContext {
   name?: string;
   oneLiner?: string;

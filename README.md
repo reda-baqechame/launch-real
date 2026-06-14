@@ -92,6 +92,8 @@ payments. Each has a screen here but no working backend yet.
 - Live **copy rewriting** (`/api/copy`) — the Rewrite / "More founder-like" /
   "Less hype" buttons on every copy asset (Copy, Product Hunt, Landing tabs)
   call Claude and replace the text in place.
+- **Recording recap** (`/api/recap`) — on the recorder review screen, turn the
+  narration + length into a clean title, summary, and timecoded chapters.
 
 The audit and angles are generated in parallel the moment you click **Analyze my
 launch** on `/new`; without a key, everything falls back to the built-in

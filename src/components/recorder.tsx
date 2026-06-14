@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, ButtonLink, Card, Pill } from "@/components/ui";
 import { AssetAction } from "@/components/asset-bits";
+import { RecordingRecap } from "@/components/recording-recap";
 import { cn } from "@/lib/cn";
 import { useStore } from "@/lib/store";
 
@@ -228,6 +229,7 @@ export function Recorder() {
   /* --------------------------------------------------------------- Review */
   if (phase === "review" && videoUrl) {
     return (
+      <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
         <Card className="p-4">
           <video
@@ -282,11 +284,13 @@ export function Recorder() {
             </ButtonLink>
           </div>
           <ul className="mt-5 space-y-1.5 text-xs text-ink-mute">
-            <li>• Auto title, transcript & chapters (coming next)</li>
-            <li>• Silence & filler-word removal</li>
+            <li>• Silence & filler-word removal (coming next)</li>
             <li>• Viewer analytics on the share page</li>
           </ul>
         </Card>
+      </div>
+
+      <RecordingRecap notes={notes} durationSec={elapsed} />
       </div>
     );
   }
