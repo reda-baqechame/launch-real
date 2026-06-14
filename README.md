@@ -91,6 +91,9 @@ payments. Each has a screen here but no working backend yet.
   video in your browser (canvas animation → `MediaRecorder`) from the project's
   hook/score and your brand-kit colors, in **16:9, 9:16, or 1:1**. Play a preview
   or generate the file.
+- **Interactive demos** (`/projects/[id]/demo`) — upload screenshots, place a
+  hotspot + tooltip per step, then play a clickable walkthrough that ends on your
+  brand CTA (Supademo-style). Reachable from the launch-kit result header.
 
 **Real and working today (with an Anthropic key connected):**
 - The **Launch Doctor** audit (`/api/audit`) — real score, breakdown, criticism.
