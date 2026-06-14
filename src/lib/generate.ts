@@ -1,4 +1,4 @@
-import type { AiAudit, LaunchAudit, Project, ProjectStatus } from "./types";
+import type { AiAudit, LaunchAudit, Project, ProjectStatus, StoryAngle } from "./types";
 import { anglesFor, momentsFor, kitFor, analyticsFor } from "./mock-data";
 
 export interface NewProjectInput {
@@ -89,7 +89,11 @@ function statusForScore(score: number): ProjectStatus {
  * is supplied (the real Launch Doctor ran), its audit, hook, and one-liner
  * override the deterministic template.
  */
-export function buildProject(input: NewProjectInput, ai?: AiAudit): Project {
+export function buildProject(
+  input: NewProjectInput,
+  ai?: AiAudit,
+  aiAngles?: StoryAngle[],
+): Project {
   const name = deriveName(input);
   const oneLiner =
     ai?.refinedOneLiner?.trim() ||
@@ -118,6 +122,10 @@ export function buildProject(input: NewProjectInput, ai?: AiAudit): Project {
       }
     : buildAudit(name, score);
 
+  // Use AI angles when they look complete, else the deterministic template.
+  const angles = aiAngles && aiAngles.length >= 5 ? aiAngles : anglesFor(name, oneLiner);
+  const selectedAngleId = angles.some((a) => a.id === "pain") ? "pain" : angles[0].id;
+
   return {
     id,
     name,
@@ -126,11 +134,11 @@ export function buildProject(input: NewProjectInput, ai?: AiAudit): Project {
     audience,
     score,
     status: statusForScore(score),
-    selectedAngleId: "pain",
+    selectedAngleId,
     mainHook: ai?.mainHook?.trim() || "Your software is built. Now make people understand it.",
     updatedAt: "Just now",
     audit,
-    angles: anglesFor(name, oneLiner),
+    angles,
     moments: momentsFor(),
     assets: kitFor(name),
     analytics: analyticsFor(),

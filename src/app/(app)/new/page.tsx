@@ -5,8 +5,8 @@ import { useState } from "react";
 import { Button, Card, Eyebrow } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useStore } from "@/lib/store";
-import { clearKey, fetchAudit, setKey, useAnthropicKey } from "@/lib/ai";
-import type { AiAudit } from "@/lib/types";
+import { clearKey, fetchAngles, fetchAudit, setKey, useAnthropicKey } from "@/lib/ai";
+import type { AiAudit, StoryAngle } from "@/lib/types";
 
 const SOURCE_OPTIONS = [
   { id: "record", label: "Record screen", icon: "M15 10l4.5-2.6v9.2L15 14M3 7h12v10H3z" },
@@ -46,12 +46,15 @@ export default function NewProjectPage() {
     setStep(0);
     setAnalyzing(true);
 
-    // Kick off the real audit (if a key is connected) while the steps animate.
+    // Run the real audit + angle generation in parallel while steps animate.
     const auditPromise: Promise<AiAudit | undefined> = aiKey
       ? fetchAudit({ url, description }).catch((e: unknown) => {
           setAiError(e instanceof Error ? e.message : "Audit failed.");
           return undefined;
         })
+      : Promise.resolve(undefined);
+    const anglesPromise: Promise<StoryAngle[] | undefined> = aiKey
+      ? fetchAngles({ url, description }).catch(() => undefined)
       : Promise.resolve(undefined);
 
     for (let i = 1; i < ANALYZING_STEPS.length; i++) {
@@ -59,8 +62,8 @@ export default function NewProjectPage() {
       setStep(i);
     }
 
-    const ai = await auditPromise;
-    const project = createProject({ url, description }, ai);
+    const [ai, angles] = await Promise.all([auditPromise, anglesPromise]);
+    const project = createProject({ url, description }, ai, angles);
     router.push(`/projects/${project.id}/audit`);
   }
 

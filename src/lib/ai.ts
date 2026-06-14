@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { AiAudit } from "./types";
+import type { AiAudit, StoryAngle } from "./types";
 
 // The user's Anthropic key lives only in their browser (localStorage). It is
 // sent to our own /api/audit route per-request and never persisted server-side.
@@ -97,4 +97,21 @@ export async function fetchAudit(input: AuditRequest): Promise<AiAudit> {
     throw new Error(body.error || `Audit failed (${res.status}).`);
   }
   return (await res.json()) as AiAudit;
+}
+
+/** Generates 5 personalized launch angles with Claude. */
+export async function fetchAngles(input: AuditRequest): Promise<StoryAngle[]> {
+  const key = getKey();
+  if (!key) throw new Error("No Anthropic key connected.");
+  const res = await fetch("/api/angles", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-anthropic-key": key },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || `Angle generation failed (${res.status}).`);
+  }
+  const data = (await res.json()) as { angles: StoryAngle[] };
+  return data.angles;
 }
