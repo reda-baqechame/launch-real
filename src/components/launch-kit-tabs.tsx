@@ -4,6 +4,7 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { Button, Pill, ScoreBar, VideoSurface } from "@/components/ui";
 import { CopyAsset, CopyButton, MediaAsset, AssetAction } from "@/components/asset-bits";
+import { LaunchVideoStudio } from "@/components/launch-video";
 import { VoiceChips } from "@/components/voice-chips";
 import { LOCALES, VOICE_CHIPS } from "@/lib/mock-data";
 import { localizeAssets, useAnthropicKey, type CopyContext, type LocalizedItem } from "@/lib/ai";
@@ -180,17 +181,18 @@ function Section({
 }
 
 function VideoTab({ project }: { project: Project }) {
+  const brand = useBrandKit();
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
       <div>
-        <VideoSurface label="Hero launch video" />
+        <LaunchVideoStudio project={project} brand={brand} />
         <div className="mt-3 flex flex-wrap gap-2">
           <Pill>16:9 · Product Hunt / YouTube</Pill>
           <Pill>9:16 · TikTok / Reels</Pill>
           <Pill>1:1 · LinkedIn / X</Pill>
         </div>
         <div className="mt-4 flex flex-wrap gap-1.5">
-          {["Download MP4", "Upload to YouTube unlisted", "Copy share link", "Regenerate scene", "Remove watermark", "Create French version", "Create Arabic version"].map((a) => (
+          {["Upload to YouTube unlisted", "Copy share link", "Remove watermark", "Create French version", "Create Arabic version"].map((a) => (
             <AssetAction key={a}>{a}</AssetAction>
           ))}
         </div>

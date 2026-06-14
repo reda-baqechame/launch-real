@@ -85,8 +85,13 @@ smart zoom), transcripts & chapters, browser-agent capture, interactive demos,
 docs export, real analytics, the localization engine, auth, database, and
 payments. Each has a screen here but no working backend yet.
 
+**Real and working today (no key needed):**
+- The screen recorder (`/record`) — fully client-side.
+- The **launch video** — the Video tab renders a real, downloadable 16:9 product
+  video in your browser (canvas animation → `MediaRecorder`) from the project's
+  hook/score and your brand-kit colors. Play a preview or generate the file.
+
 **Real and working today (with an Anthropic key connected):**
-- The screen recorder (`/record`) — fully client-side, no key needed.
 - The **Launch Doctor** audit (`/api/audit`) — real score, breakdown, criticism.
 - The **Narrative Builder** (`/api/angles`) — 5 product-specific launch angles.
 - Live **copy rewriting** (`/api/copy`) — the Rewrite / "More founder-like" /
