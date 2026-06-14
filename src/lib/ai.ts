@@ -54,6 +54,33 @@ export interface AuditRequest {
   audience?: string;
 }
 
+export interface LocalizedItem {
+  title: string;
+  body: string;
+}
+
+/** Localizes (not literally translates) a set of copy assets into a market. */
+export async function localizeAssets(input: {
+  language: string;
+  style: string;
+  context: { name?: string; oneLiner?: string; hook?: string };
+  items: LocalizedItem[];
+}): Promise<LocalizedItem[]> {
+  const key = getKey();
+  if (!key) throw new Error("No Anthropic key connected.");
+  const res = await fetch("/api/localize", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-anthropic-key": key },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || `Localization failed (${res.status}).`);
+  }
+  const data = (await res.json()) as { items: LocalizedItem[] };
+  return data.items;
+}
+
 export interface RecapResult {
   title: string;
   summary: string;

@@ -94,6 +94,8 @@ payments. Each has a screen here but no working backend yet.
   call Claude and replace the text in place.
 - **Recording recap** (`/api/recap`) — on the recorder review screen, turn the
   narration + length into a clean title, summary, and timecoded chapters.
+- **Localize** (`/api/localize`) — adapt (not literally translate) the launch
+  copy into French / Arabic / Spanish / Portuguese, with RTL rendering for Arabic.
 
 The audit and angles are generated in parallel the moment you click **Analyze my
 launch** on `/new`; without a key, everything falls back to the built-in

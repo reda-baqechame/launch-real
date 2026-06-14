@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/cn";
-import { Pill, ScoreBar, VideoSurface } from "@/components/ui";
-import { CopyAsset, MediaAsset, AssetAction } from "@/components/asset-bits";
+import { Button, Pill, ScoreBar, VideoSurface } from "@/components/ui";
+import { CopyAsset, CopyButton, MediaAsset, AssetAction } from "@/components/asset-bits";
 import { VoiceChips } from "@/components/voice-chips";
 import { LOCALES, VOICE_CHIPS } from "@/lib/mock-data";
-import type { CopyContext } from "@/lib/ai";
+import { localizeAssets, useAnthropicKey, type CopyContext, type LocalizedItem } from "@/lib/ai";
 import type { Project } from "@/lib/types";
 
 const TABS = [
@@ -152,7 +152,7 @@ export function LaunchKitTabs({ project }: { project: Project }) {
           </Section>
         )}
 
-        {tab === "Localize" && <LocalizeTab />}
+        {tab === "Localize" && <LocalizeTab project={project} context={copyContext} />}
       </div>
     </div>
   );
@@ -257,25 +257,118 @@ function SharePageTab({ project }: { project: Project }) {
   );
 }
 
-function LocalizeTab() {
-  const styles = ["Native founder voice", "Formal business", "Punchy social", "Investor-ready"];
+const LOCALIZE_STYLES = ["Native founder voice", "Formal business", "Punchy social", "Investor-ready"];
+
+function LocalizeTab({
+  project,
+  context,
+}: {
+  project: Project;
+  context: CopyContext;
+}) {
+  const aiKey = useAnthropicKey();
+  const [lang, setLang] = useState(LOCALES[1]); // French by default
+  const [style, setStyle] = useState(LOCALIZE_STYLES[0]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<LocalizedItem[] | null>(null);
+
+  // The launch-day essentials worth localizing first.
+  const source: LocalizedItem[] = [...project.assets.social, ...project.assets.copy]
+    .filter((a) => a.body)
+    .slice(0, 6)
+    .map((a) => ({ title: a.title, body: a.body as string }));
+
+  async function localize() {
+    setBusy(true);
+    setError(null);
+    try {
+      const items = await localizeAssets({
+        language: lang.label,
+        style,
+        context,
+        items: source,
+      });
+      setResult(items);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Localization failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Section title="Create a localized launch kit" hint="Not literal translation. The angle, idioms, and CTA adapt to the market.">
-      <div className="flex flex-wrap gap-2">
+      <p className="text-xs uppercase tracking-wider text-ink-mute">Market</p>
+      <div className="mt-2 flex flex-wrap gap-2">
         {LOCALES.map((l) => (
           <button
             key={l.code}
-            className="rounded-lg border border-line bg-surface px-4 py-2 text-sm text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
+            onClick={() => setLang(l)}
+            className={cn(
+              "rounded-lg border px-4 py-2 text-sm transition-colors",
+              l.code === lang.code
+                ? "border-accent/50 bg-accent/10 text-ink"
+                : "border-line bg-surface text-ink-soft hover:border-line-strong hover:text-ink",
+            )}
           >
             {l.label}
             {l.rtl && <span className="ml-1.5 text-xs text-ink-mute">RTL</span>}
           </button>
         ))}
       </div>
+
       <p className="mt-5 text-xs uppercase tracking-wider text-ink-mute">Localization style</p>
-      <div className="mt-2">
-        <VoiceChips options={styles} />
+      <div className="mt-2 flex flex-wrap gap-2">
+        {LOCALIZE_STYLES.map((s) => (
+          <button
+            key={s}
+            onClick={() => setStyle(s)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs transition-colors",
+              s === style
+                ? "border-accent/50 bg-accent/15 text-accent-ink"
+                : "border-line bg-surface-2 text-ink-soft hover:border-line-strong hover:text-ink",
+            )}
+          >
+            {s}
+          </button>
+        ))}
       </div>
+
+      <div className="mt-5 flex items-center gap-3">
+        <Button onClick={localize} disabled={!aiKey || busy}>
+          {busy ? `Creating ${lang.label} version…` : `Create ${lang.label} version`}
+        </Button>
+        {!aiKey && (
+          <span className="text-xs text-ink-mute">Connect a key on New launch to enable</span>
+        )}
+        {error && <span className="text-xs text-warn">{error}</span>}
+      </div>
+
+      {result && (
+        <div className="mt-6 grid gap-2" dir={lang.rtl ? "rtl" : "ltr"}>
+          {result.map((item, i) => (
+            <div key={i} className="rounded-xl border border-line bg-surface p-4">
+              <div className="flex items-center justify-between gap-3" dir="ltr">
+                <p className="font-medium text-ink">{item.title}</p>
+                <span className="text-xs text-ink-mute">{lang.label}</span>
+              </div>
+              <pre
+                className={cn(
+                  "mt-3 whitespace-pre-wrap rounded-lg border border-line bg-base p-3 font-sans text-sm leading-relaxed text-ink-soft",
+                  lang.rtl && "text-right",
+                )}
+              >
+                {item.body}
+              </pre>
+              <div className="mt-3" dir="ltr">
+                <CopyButton text={item.body} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </Section>
   );
 }
