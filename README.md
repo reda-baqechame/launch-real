@@ -85,5 +85,8 @@ smart zoom), transcripts & chapters, browser-agent capture, interactive demos,
 docs export, real analytics, the localization engine, auth, database, and
 payments. Each has a screen here but no working backend yet.
 
-**Real and working today:** the screen recorder (`/record`) and the Launch
-Doctor audit (`/api/audit`, bring-your-own Anthropic key).
+**Real and working today:** the screen recorder (`/record`), the Launch Doctor
+audit (`/api/audit`), and live copy rewriting — with a key connected, the
+Rewrite / "More founder-like" / "Less hype" buttons on every copy asset (Copy,
+Product Hunt, and Landing tabs) call Claude via `/api/copy` and replace the text
+in place.

@@ -54,6 +54,35 @@ export interface AuditRequest {
   audience?: string;
 }
 
+export interface CopyContext {
+  name?: string;
+  oneLiner?: string;
+  audience?: string;
+  hook?: string;
+}
+
+/** Rewrites a single copy asset with Claude per an instruction. */
+export async function rewriteCopy(input: {
+  title: string;
+  body?: string;
+  instruction: string;
+  context: CopyContext;
+}): Promise<string> {
+  const key = getKey();
+  if (!key) throw new Error("No Anthropic key connected.");
+  const res = await fetch("/api/copy", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-anthropic-key": key },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error || `Rewrite failed (${res.status}).`);
+  }
+  const data = (await res.json()) as { body: string };
+  return data.body;
+}
+
 /** Calls the server route, which runs the real Launch Doctor with Claude. */
 export async function fetchAudit(input: AuditRequest): Promise<AiAudit> {
   const key = getKey();

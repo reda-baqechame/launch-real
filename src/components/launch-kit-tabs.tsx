@@ -6,6 +6,7 @@ import { Pill, ScoreBar, VideoSurface } from "@/components/ui";
 import { CopyAsset, MediaAsset, AssetAction } from "@/components/asset-bits";
 import { VoiceChips } from "@/components/voice-chips";
 import { LOCALES, VOICE_CHIPS } from "@/lib/mock-data";
+import type { CopyContext } from "@/lib/ai";
 import type { Project } from "@/lib/types";
 
 const TABS = [
@@ -23,6 +24,12 @@ type Tab = (typeof TABS)[number];
 export function LaunchKitTabs({ project }: { project: Project }) {
   const [tab, setTab] = useState<Tab>("Video");
   const { assets, analytics } = project;
+  const copyContext: CopyContext = {
+    name: project.name,
+    oneLiner: project.oneLiner,
+    audience: project.audience,
+    hook: project.mainHook,
+  };
 
   return (
     <div className="mt-8">
@@ -53,7 +60,11 @@ export function LaunchKitTabs({ project }: { project: Project }) {
           <Section title="Product Hunt kit" hint="Gallery, poster, screenshots, and copy — ordered for clarity.">
             <div className="grid gap-2 sm:grid-cols-2">
               {assets.productHunt.map((a) =>
-                a.body ? <CopyAsset key={a.id} asset={a} /> : <MediaAsset key={a.id} asset={a} />,
+                a.body ? (
+                  <CopyAsset key={a.id} asset={a} context={copyContext} />
+                ) : (
+                  <MediaAsset key={a.id} asset={a} />
+                ),
               )}
             </div>
           </Section>
@@ -87,7 +98,7 @@ export function LaunchKitTabs({ project }: { project: Project }) {
             </div>
             <div className="grid gap-2">
               {assets.copy.map((a) => (
-                <CopyAsset key={a.id} asset={a} />
+                <CopyAsset key={a.id} asset={a} context={copyContext} />
               ))}
             </div>
           </Section>
@@ -97,7 +108,7 @@ export function LaunchKitTabs({ project }: { project: Project }) {
           <Section title="Landing page kit" hint="Many founders have unclear landing pages. Here's a sharper one.">
             <div className="grid gap-2">
               {assets.landingPage.map((a) => (
-                <CopyAsset key={a.id} asset={a} />
+                <CopyAsset key={a.id} asset={a} context={copyContext} />
               ))}
             </div>
           </Section>
