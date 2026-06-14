@@ -36,6 +36,11 @@ Marketing
 
 The app (`src/app/(app)`, shared sidebar + topbar shell)
 - `/dashboard` — Recent launches, credits, create-mode grid
+- `/record` — **Real in-browser screen recorder** (`getDisplayMedia` + canvas
+  compositing + `MediaRecorder`): screen capture with a baked-in circular camera
+  bubble, mic audio, countdown, pause/resume, teleprompter, and a real playable
+  recording you can download — then turn it into a launch kit. Fully client-side;
+  nothing is uploaded. Needs a secure context (HTTPS or localhost).
 - `/new` — New project screen with a simulated "Analyze my launch" transition
 - `/projects/[id]/audit` — **Launch Doctor**: score, breakdown, honest criticism
 - `/projects/[id]/angle` — **Narrative Builder**: selectable launch angles
@@ -58,7 +63,9 @@ moments → **Make the launch kit** → result.
 
 ## Deferred to later milestones
 
-Real screen recorder, AI generation (Launch Doctor / copy), actual video
-rendering, browser-agent capture, interactive demos, docs export, real analytics,
-the localization engine, auth, database, and payments. Each has a screen here but
-no working backend yet.
+AI generation (Launch Doctor / copy), automatic editing (silence & filler-word
+removal, smart zoom), transcripts & chapters, browser-agent capture, interactive
+demos, docs export, real analytics, the localization engine, auth, database, and
+payments. Each has a screen here but no working backend yet.
+
+The screen recorder (`/record`) is real and works today.

@@ -60,7 +60,7 @@ export default function DashboardPage() {
       </h2>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[
-          { t: "Record quick video", d: "Loom-style, but it becomes assets.", href: "/new" },
+          { t: "Record quick video", d: "Loom-style, but it becomes assets.", href: "/record" },
           { t: "Product presentation", d: "The killer flow. Paste a product.", href: "/new" },
           { t: "Launch video", d: "Hook → pain → transformation → CTA.", href: "/new" },
           { t: "Tutorial", d: "Screen recording → step-by-step guide.", href: "/new" },

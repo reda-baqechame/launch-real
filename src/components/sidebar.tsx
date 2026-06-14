@@ -8,6 +8,7 @@ import { CREDITS } from "@/lib/mock-data";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: "M3 12l9-9 9 9M5 10v10h14V10" },
+  { href: "/record", label: "Record", icon: "M15 10l4.5-2.6v9.2L15 14M3 7h12v10H3z" },
   { href: "/new", label: "New launch kit", icon: "M12 5v14M5 12h14" },
   { href: "/library", label: "Library", icon: "M4 6h16M4 12h16M4 18h10" },
   { href: "/brand", label: "Brand kit", icon: "M12 3l8 4.5v9L12 21l-8-4.5v-9z" },
