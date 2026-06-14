@@ -1,11 +1,12 @@
+"use client";
+
 import Link from "next/link";
 import { ButtonLink, Card, ScoreRing, StatusBadge } from "@/components/ui";
-import { CREDITS, PROJECTS } from "@/lib/mock-data";
-
-export const metadata = { title: "Dashboard — LaunchReel" };
+import { CREDITS } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 
 export default function DashboardPage() {
-  const projects = PROJECTS;
+  const { projects } = useStore();
 
   return (
     <div className="mx-auto max-w-5xl">

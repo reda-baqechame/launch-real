@@ -1,17 +1,13 @@
-import { notFound } from "next/navigation";
+"use client";
+
 import { Eyebrow } from "@/components/ui";
 import { FlowSteps } from "@/components/flow-steps";
 import { MomentReview } from "@/components/moment-review";
-import { getProject } from "@/lib/mock-data";
+import { ProjectMissing, useRouteProject } from "@/components/project-gate";
 
-export default async function MomentsPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const project = getProject(id);
-  if (!project) notFound();
+export default function MomentsPage() {
+  const { project, hydrated } = useRouteProject();
+  if (!project) return <ProjectMissing hydrated={hydrated} />;
 
   return (
     <div className="mx-auto max-w-3xl">

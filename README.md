@@ -6,11 +6,24 @@ Your software is built. Now make people understand it. LaunchReel turns any
 software product into a professional video, Product Hunt gallery, social clips,
 launch copy, and a public share page — automatically.
 
-This repository currently contains **Milestone 1: the polished UI foundation** —
-every key screen of the product, built with the real premium dark UI and wired
-to realistic in-memory mock data. No real video rendering, AI calls, recording,
-or database yet; the goal of this milestone is a tangible, navigable product that
-every later engine can plug into.
+This repository currently contains the **polished, working UI foundation** —
+every key screen of the product, built with the real premium dark UI. The app is
+**stateful**: pasting a product (or finishing a recording) generates a tailored
+launch — score, angles, copy, assets — that's saved to your browser
+(localStorage) and shows up on the dashboard. There's a **real in-browser screen
+recorder**. No server-side AI or video rendering yet; those engines plug into the
+same data model.
+
+### What's actually wired
+
+- **Create a launch** — `/new` derives a product name from the URL/description and
+  builds a personalized, deterministic project, then routes you through the flow.
+- **Record** — `/record` captures a real screen recording (with camera bubble);
+  "turn into a launch kit" creates a project from it.
+- **Persistence** — created projects live in `localStorage` and list on the
+  dashboard and in the library. Seed projects ship for an out-of-the-box demo.
+- **Client store** — `src/lib/store.tsx` (`useSyncExternalStore`) +
+  `src/lib/generate.ts` (the personalization layer).
 
 ## Stack
 

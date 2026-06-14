@@ -26,7 +26,7 @@ export const VOICE_CHIPS = [
   "More direct",
 ];
 
-function anglesFor(name: string, oneLiner: string): StoryAngle[] {
+export function anglesFor(name: string, oneLiner: string): StoryAngle[] {
   return [
     {
       id: "pain",
@@ -91,7 +91,7 @@ function anglesFor(name: string, oneLiner: string): StoryAngle[] {
   ];
 }
 
-function momentsFor(): DemoMoment[] {
+export function momentsFor(): DemoMoment[] {
   return [
     {
       id: "m1",
@@ -144,7 +144,7 @@ function momentsFor(): DemoMoment[] {
   ];
 }
 
-function kitFor(name: string): LaunchKit {
+export function kitFor(name: string): LaunchKit {
   return {
     videos: [
       { id: "v1", title: "Hero launch video", meta: "16:9 · Product Hunt / YouTube" },
@@ -229,7 +229,7 @@ function kitFor(name: string): LaunchKit {
   };
 }
 
-function analyticsFor(): Analytics {
+export function analyticsFor(): Analytics {
   return {
     metrics: [
       { label: "Share page views", value: "428" },

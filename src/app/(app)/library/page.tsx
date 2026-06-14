@@ -1,8 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { Card, Eyebrow, StatusBadge } from "@/components/ui";
-import { PROJECTS } from "@/lib/mock-data";
-
-export const metadata = { title: "Library — LaunchReel" };
+import { useStore } from "@/lib/store";
 
 const COLLECTIONS = [
   "Product videos",
@@ -14,6 +14,7 @@ const COLLECTIONS = [
 ];
 
 export default function LibraryPage() {
+  const { projects } = useStore();
   return (
     <div className="mx-auto max-w-5xl">
       <Eyebrow>Library</Eyebrow>
@@ -35,7 +36,7 @@ export default function LibraryPage() {
       </div>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {PROJECTS.map((p) => (
+        {projects.map((p) => (
           <Link
             key={p.id}
             href={`/projects/${p.id}/result`}

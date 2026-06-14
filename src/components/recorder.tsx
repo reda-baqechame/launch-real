@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, ButtonLink, Card, Pill } from "@/components/ui";
 import { AssetAction } from "@/components/asset-bits";
 import { cn } from "@/lib/cn";
+import { useStore } from "@/lib/store";
 
 type Phase = "setup" | "countdown" | "recording" | "paused" | "review";
 
@@ -26,6 +28,8 @@ function formatTime(s: number): string {
 }
 
 export function Recorder() {
+  const router = useRouter();
+  const { createProject } = useStore();
   const [phase, setPhase] = useState<Phase>("setup");
   const [withCamera, setWithCamera] = useState(true);
   const [withMic, setWithMic] = useState(true);
@@ -258,9 +262,15 @@ export function Recorder() {
             Loom stops at a link. LaunchReel keeps going.
           </p>
           <div className="mt-4 flex flex-col gap-2">
-            <ButtonLink href="/projects/launchreel/audit" className="w-full">
+            <Button
+              className="w-full"
+              onClick={() => {
+                const p = createProject({ fromRecording: true });
+                router.push(`/projects/${p.id}/audit`);
+              }}
+            >
               A full launch kit
-            </ButtonLink>
+            </Button>
             <ButtonLink href="/new" variant="secondary" className="w-full">
               A product presentation
             </ButtonLink>

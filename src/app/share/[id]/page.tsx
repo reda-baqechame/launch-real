@@ -1,17 +1,13 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { ButtonLink, Pill, VideoSurface } from "@/components/ui";
 import { Logo } from "@/components/logo";
-import { getProject } from "@/lib/mock-data";
+import { ProjectMissing, useRouteProject } from "@/components/project-gate";
 
-export default async function SharePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const project = getProject(id);
-  if (!project) notFound();
+export default function SharePage() {
+  const { project, hydrated } = useRouteProject();
+  if (!project) return <ProjectMissing hydrated={hydrated} />;
 
   return (
     <div className="relative flex min-h-screen flex-col">

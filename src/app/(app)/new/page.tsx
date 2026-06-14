@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Card, Eyebrow } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { useStore } from "@/lib/store";
 
 const SOURCE_OPTIONS = [
   { id: "record", label: "Record screen", icon: "M15 10l4.5-2.6v9.2L15 14M3 7h12v10H3z" },
@@ -23,7 +24,9 @@ const ANALYZING_STEPS = [
 
 export default function NewProjectPage() {
   const router = useRouter();
+  const { createProject } = useStore();
   const [url, setUrl] = useState("");
+  const [description, setDescription] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState(0);
@@ -33,13 +36,15 @@ export default function NewProjectPage() {
   }
 
   function analyze() {
+    // Create the project up front so it's in the store the moment we land.
+    const project = createProject({ url, description });
     setAnalyzing(true);
     let i = 0;
     const t = setInterval(() => {
       i += 1;
       if (i >= ANALYZING_STEPS.length) {
         clearInterval(t);
-        router.push("/projects/launchreel/audit");
+        router.push(`/projects/${project.id}/audit`);
         return;
       }
       setStep(i);
@@ -132,6 +137,8 @@ export default function NewProjectPage() {
         </label>
         <textarea
           rows={3}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
           placeholder="Example: AI tool that turns SaaS recordings into launch videos for indie hackers"
           className="mt-2 w-full resize-none rounded-lg border border-line bg-base px-4 py-3 text-sm text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-accent/60"
         />
