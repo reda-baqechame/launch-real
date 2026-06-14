@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surfaces */
+  --color-base: #0a0a0b;
+  --color-surface: #111114;
+  --color-surface-2: #16161a;
+  --color-elevated: #1b1b20;
+  --color-line: #232329;
+  --color-line-strong: #2e2e36;
+
+  /* Text */
+  --color-ink: #ededef;
+  --color-ink-soft: #b4b4bd;
+  --color-ink-mute: #7b7b86;
+  --color-ink-faint: #56565f;
+
+  /* Accent — electric violet, used sparingly */
+  --color-accent: #6e56f7;
+  --color-accent-soft: #8a78f9;
+  --color-accent-ink: #c9bffd;
+
+  /* Signal */
+  --color-good: #34d399;
+  --color-warn: #f5b14b;
+  --color-bad: #f5685f;
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --radius-xl: 16px;
+}
+
+html {
+  background: var(--color-base);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Headings sit slightly tighter for a premium feel */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  color: #fff;
+}
+
+/* Subtle scrollbar that doesn't fight the dark surfaces */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+/* Ambient hero glow utility */
+.glow-accent {
+  background: radial-gradient(
+    60% 50% at 50% 0%,
+    color-mix(in srgb, var(--color-accent) 22%, transparent),
+    transparent 70%
+  );
+}
+
+.grid-faint {
+  background-image: linear-gradient(
+      to right,
+      color-mix(in srgb, var(--color-line) 60%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-line) 60%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 56px 56px;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.animate-pulse-soft {
+  animation: pulse-soft 1.8s ease-in-out infinite;
+}
