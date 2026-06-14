@@ -111,6 +111,7 @@ export interface CopyContext {
   oneLiner?: string;
   audience?: string;
   hook?: string;
+  cta?: string;
 }
 
 /** Rewrites a single copy asset with Claude per an instruction. */

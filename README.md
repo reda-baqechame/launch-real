@@ -97,6 +97,10 @@ payments. Each has a screen here but no working backend yet.
 - **Localize** (`/api/localize`) — adapt (not literally translate) the launch
   copy into French / Arabic / Spanish / Portuguese, with RTL rendering for Arabic.
 
+The **Brand Kit** (`/brand`) persists to your browser (live end-card preview),
+and its CTA is fed into the copy and localize engines so output stays on-brand —
+no key required to save it.
+
 The audit and angles are generated in parallel the moment you click **Analyze my
 launch** on `/new`; without a key, everything falls back to the built-in
 generator.

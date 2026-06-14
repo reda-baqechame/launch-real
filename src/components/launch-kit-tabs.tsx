@@ -7,6 +7,7 @@ import { CopyAsset, CopyButton, MediaAsset, AssetAction } from "@/components/ass
 import { VoiceChips } from "@/components/voice-chips";
 import { LOCALES, VOICE_CHIPS } from "@/lib/mock-data";
 import { localizeAssets, useAnthropicKey, type CopyContext, type LocalizedItem } from "@/lib/ai";
+import { useBrandKit } from "@/lib/brand";
 import type { Project } from "@/lib/types";
 
 const TABS = [
@@ -24,11 +25,13 @@ type Tab = (typeof TABS)[number];
 export function LaunchKitTabs({ project }: { project: Project }) {
   const [tab, setTab] = useState<Tab>("Video");
   const { assets, analytics } = project;
+  const brand = useBrandKit();
   const copyContext: CopyContext = {
     name: project.name,
     oneLiner: project.oneLiner,
     audience: project.audience,
     hook: project.mainHook,
+    cta: brand.cta,
   };
 
   return (

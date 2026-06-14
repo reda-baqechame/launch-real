@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     title?: string;
     body?: string;
     instruction?: string;
-    context?: { name?: string; oneLiner?: string; audience?: string; hook?: string };
+    context?: { name?: string; oneLiner?: string; audience?: string; hook?: string; cta?: string };
   };
   try {
     body = await req.json();
@@ -46,6 +46,7 @@ export async function POST(req: Request) {
     ctx.oneLiner ? `What it is: ${ctx.oneLiner}` : null,
     ctx.audience ? `Audience: ${ctx.audience}` : null,
     ctx.hook ? `Launch hook: ${ctx.hook}` : null,
+    ctx.cta ? `Preferred call to action (use it where a CTA fits): ${ctx.cta}` : null,
     "",
     `Asset to rewrite: ${body.title ?? "launch copy"}`,
     body.body ? `Current version:\n${body.body}` : null,

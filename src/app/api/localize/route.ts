@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   let body: {
     language?: string;
     style?: string;
-    context?: { name?: string; oneLiner?: string; hook?: string };
+    context?: { name?: string; oneLiner?: string; hook?: string; cta?: string };
     items?: { title: string; body: string }[];
   };
   try {
@@ -59,6 +59,7 @@ export async function POST(req: Request) {
     ctx.name ? `Product: ${ctx.name}` : null,
     ctx.oneLiner ? `What it is: ${ctx.oneLiner}` : null,
     ctx.hook ? `Launch hook: ${ctx.hook}` : null,
+    ctx.cta ? `Preferred CTA (localize it naturally): ${ctx.cta}` : null,
     "",
     "Assets (JSON):",
     JSON.stringify(body.items),
