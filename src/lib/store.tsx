@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useSyncExternalStore } from "react";
-import type { Project } from "./types";
+import type { AiAudit, Project } from "./types";
 import { PROJECTS } from "./mock-data";
 import { buildProject, type NewProjectInput } from "./generate";
 
@@ -56,8 +56,8 @@ function subscribe(cb: () => void): () => void {
   return () => listeners.delete(cb);
 }
 
-function create(input: NewProjectInput): Project {
-  const project = buildProject(input);
+function create(input: NewProjectInput, ai?: AiAudit): Project {
+  const project = buildProject(input, ai);
   const next = [project, ...snapshot.projects.filter((p) => p.id !== project.id)];
   snapshot = { projects: next, hydrated: true };
   persistExtras(next);
@@ -69,7 +69,7 @@ export interface StoreValue {
   projects: Project[];
   hydrated: boolean;
   getProject: (id: string) => Project | undefined;
-  createProject: (input: NewProjectInput) => Project;
+  createProject: (input: NewProjectInput, ai?: AiAudit) => Project;
 }
 
 /** Optional provider — kept so the app can mount/seed once near the root. */

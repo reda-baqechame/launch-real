@@ -55,7 +55,11 @@ The app (`src/app/(app)`, shared sidebar + topbar shell)
   recording you can download — then turn it into a launch kit. Fully client-side;
   nothing is uploaded. Needs a secure context (HTTPS or localhost).
 - `/new` — New project screen with a simulated "Analyze my launch" transition
-- `/projects/[id]/audit` — **Launch Doctor**: score, breakdown, honest criticism
+- `/projects/[id]/audit` — **Launch Doctor**: score, breakdown, honest criticism.
+  Connect an Anthropic API key on `/new` and this becomes a **real** Claude audit
+  (`claude-opus-4-8`, structured output) via `/api/audit`; without a key it uses
+  the built-in generator. The key lives only in your browser and is sent per
+  request — never stored server-side.
 - `/projects/[id]/angle` — **Narrative Builder**: selectable launch angles
 - `/projects/[id]/moments` — **Demo Director**: moment review with story roles
 - `/projects/[id]/result` — **Launch Kit** with all tabs (Video / Product Hunt /
@@ -76,9 +80,10 @@ moments → **Make the launch kit** → result.
 
 ## Deferred to later milestones
 
-AI generation (Launch Doctor / copy), automatic editing (silence & filler-word
-removal, smart zoom), transcripts & chapters, browser-agent capture, interactive
-demos, docs export, real analytics, the localization engine, auth, database, and
+Real copy/asset generation, automatic editing (silence & filler-word removal,
+smart zoom), transcripts & chapters, browser-agent capture, interactive demos,
+docs export, real analytics, the localization engine, auth, database, and
 payments. Each has a screen here but no working backend yet.
 
-The screen recorder (`/record`) is real and works today.
+**Real and working today:** the screen recorder (`/record`) and the Launch
+Doctor audit (`/api/audit`, bring-your-own Anthropic key).

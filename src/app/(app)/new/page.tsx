@@ -5,6 +5,8 @@ import { useState } from "react";
 import { Button, Card, Eyebrow } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useStore } from "@/lib/store";
+import { clearKey, fetchAudit, setKey, useAnthropicKey } from "@/lib/ai";
+import type { AiAudit } from "@/lib/types";
 
 const SOURCE_OPTIONS = [
   { id: "record", label: "Record screen", icon: "M15 10l4.5-2.6v9.2L15 14M3 7h12v10H3z" },
@@ -22,33 +24,44 @@ const ANALYZING_STEPS = [
   "Scoring demo strength and proof…",
 ];
 
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export default function NewProjectPage() {
   const router = useRouter();
   const { createProject } = useStore();
+  const aiKey = useAnthropicKey();
   const [url, setUrl] = useState("");
   const [description, setDescription] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState(0);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   function toggle(id: string) {
     setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   }
 
-  function analyze() {
-    // Create the project up front so it's in the store the moment we land.
-    const project = createProject({ url, description });
+  async function analyze() {
+    setAiError(null);
+    setStep(0);
     setAnalyzing(true);
-    let i = 0;
-    const t = setInterval(() => {
-      i += 1;
-      if (i >= ANALYZING_STEPS.length) {
-        clearInterval(t);
-        router.push(`/projects/${project.id}/audit`);
-        return;
-      }
+
+    // Kick off the real audit (if a key is connected) while the steps animate.
+    const auditPromise: Promise<AiAudit | undefined> = aiKey
+      ? fetchAudit({ url, description }).catch((e: unknown) => {
+          setAiError(e instanceof Error ? e.message : "Audit failed.");
+          return undefined;
+        })
+      : Promise.resolve(undefined);
+
+    for (let i = 1; i < ANALYZING_STEPS.length; i++) {
+      await delay(650);
       setStep(i);
-    }, 650);
+    }
+
+    const ai = await auditPromise;
+    const project = createProject({ url, description }, ai);
+    router.push(`/projects/${project.id}/audit`);
   }
 
   if (analyzing) {
@@ -59,7 +72,9 @@ export default function NewProjectPage() {
         </div>
         <h1 className="mt-6 text-xl font-semibold text-ink">Analyzing your launch</h1>
         <p className="mt-2 text-sm text-ink-mute">
-          LaunchReel thinks before it generates.
+          {aiKey
+            ? "Auditing with Claude before it generates."
+            : "LaunchReel thinks before it generates."}
         </p>
         <ul className="mt-8 w-full space-y-2 text-left">
           {ANALYZING_STEPS.map((s, i) => (
@@ -143,14 +158,95 @@ export default function NewProjectPage() {
           className="mt-2 w-full resize-none rounded-lg border border-line bg-base px-4 py-3 text-sm text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-accent/60"
         />
 
-        <p className="mt-4 text-xs text-ink-mute">
-          Narrate while recording for a sharper script.
-        </p>
+        <AiConnect connected={!!aiKey} />
 
-        <Button onClick={analyze} size="lg" className="mt-6 w-full">
-          Analyze my launch
+        {aiError && (
+          <p className="mt-3 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
+            {aiError} — falling back to the built-in audit.
+          </p>
+        )}
+
+        <Button onClick={analyze} size="lg" className="mt-5 w-full">
+          {aiKey ? "Analyze my launch with Claude" : "Analyze my launch"}
         </Button>
       </Card>
+    </div>
+  );
+}
+
+/** Optional bring-your-own-key panel that powers the real Launch Doctor. */
+function AiConnect({ connected }: { connected: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+
+  return (
+    <div className="mt-6 rounded-xl border border-line bg-surface-2 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "size-2 rounded-full",
+              connected ? "bg-good" : "bg-ink-faint",
+            )}
+          />
+          <p className="text-sm font-medium text-ink">
+            {connected ? "Launch Doctor connected to Claude" : "Use real AI (optional)"}
+          </p>
+        </div>
+        {connected ? (
+          <button
+            onClick={() => clearKey()}
+            className="text-xs text-ink-mute hover:text-ink"
+          >
+            Disconnect
+          </button>
+        ) : (
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="text-xs text-accent-ink hover:text-accent-soft"
+          >
+            {open ? "Cancel" : "Connect"}
+          </button>
+        )}
+      </div>
+
+      {connected ? (
+        <p className="mt-1.5 text-xs text-ink-mute">
+          Your audit, score, and hook are generated by claude-opus-4-8 using your
+          key. Stored only in this browser.
+        </p>
+      ) : open ? (
+        <div className="mt-3">
+          <input
+            type="password"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="sk-ant-..."
+            className="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-ink outline-none focus:border-accent/60"
+          />
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <p className="text-xs text-ink-mute">
+              Sent only to generate your audit. Never stored on our servers.
+            </p>
+            <Button
+              size="sm"
+              disabled={!value.trim().startsWith("sk-")}
+              onClick={() => {
+                setKey(value);
+                setValue("");
+                setOpen(false);
+              }}
+            >
+              Save key
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-1.5 text-xs text-ink-mute">
+          Connect your Anthropic key and the Launch Doctor becomes a real Claude
+          audit. Without it, LaunchReel uses its built-in generator.
+        </p>
+      )}
     </div>
   );
 }

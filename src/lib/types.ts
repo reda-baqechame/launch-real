@@ -129,3 +129,20 @@ export interface Locale {
   label: string;
   rtl?: boolean;
 }
+
+/**
+ * Shape returned by the real (bring-your-own-key) Launch Doctor. It overrides
+ * the deterministic audit fields when an Anthropic key is connected.
+ */
+export interface AiAudit {
+  score: number;
+  strongestAngle: string;
+  weakestPoint: string;
+  bestAudience: string;
+  bestDemoMoment: string;
+  recommendedHook: string;
+  mainHook: string;
+  refinedOneLiner: string;
+  breakdown: ScoreBreakdown[];
+  criticism: string[];
+}

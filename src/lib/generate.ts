@@ -1,4 +1,4 @@
-import type { LaunchAudit, Project, ProjectStatus } from "./types";
+import type { AiAudit, LaunchAudit, Project, ProjectStatus } from "./types";
 import { anglesFor, momentsFor, kitFor, analyticsFor } from "./mock-data";
 
 export interface NewProjectInput {
@@ -84,21 +84,39 @@ function statusForScore(score: number): ProjectStatus {
   return "Needs review";
 }
 
-/** Turn raw user input into a fully-populated, personalized Project. */
-export function buildProject(input: NewProjectInput): Project {
+/**
+ * Turn raw user input into a fully-populated, personalized Project. When `ai`
+ * is supplied (the real Launch Doctor ran), its audit, hook, and one-liner
+ * override the deterministic template.
+ */
+export function buildProject(input: NewProjectInput, ai?: AiAudit): Project {
   const name = deriveName(input);
   const oneLiner =
+    ai?.refinedOneLiner?.trim() ||
     input.description?.trim() ||
     (input.fromRecording
       ? "A product walkthrough recorded with LaunchReel."
       : `${name} — the best way to show software.`);
-  const audience = input.audience?.trim() || "Indie hackers and SaaS founders";
+  const audience = input.audience?.trim() || ai?.bestAudience || "Indie hackers and SaaS founders";
 
   const seed = hash(name + oneLiner);
-  const score = 70 + (seed % 22); // 70–91, deterministic per input
+  const score = ai ? Math.max(0, Math.min(100, Math.round(ai.score))) : 70 + (seed % 22);
   const id = `${titleCase(name).toLowerCase().slice(0, 18)}-${(seed % 9999)
     .toString(36)
     .padStart(3, "0")}`;
+
+  const audit: LaunchAudit = ai
+    ? {
+        score,
+        strongestAngle: ai.strongestAngle,
+        weakestPoint: ai.weakestPoint,
+        bestAudience: ai.bestAudience,
+        bestDemoMoment: ai.bestDemoMoment,
+        recommendedHook: ai.recommendedHook,
+        breakdown: ai.breakdown,
+        criticism: ai.criticism,
+      }
+    : buildAudit(name, score);
 
   return {
     id,
@@ -109,9 +127,9 @@ export function buildProject(input: NewProjectInput): Project {
     score,
     status: statusForScore(score),
     selectedAngleId: "pain",
-    mainHook: "Your software is built. Now make people understand it.",
+    mainHook: ai?.mainHook?.trim() || "Your software is built. Now make people understand it.",
     updatedAt: "Just now",
-    audit: buildAudit(name, score),
+    audit,
     angles: anglesFor(name, oneLiner),
     moments: momentsFor(),
     assets: kitFor(name),
