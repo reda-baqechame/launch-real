@@ -87,9 +87,10 @@ payments. Each has a screen here but no working backend yet.
 
 **Real and working today (no key needed):**
 - The screen recorder (`/record`) — fully client-side.
-- The **launch video** — the Video tab renders a real, downloadable 16:9 product
+- The **launch video** — the Video tab renders a real, downloadable product
   video in your browser (canvas animation → `MediaRecorder`) from the project's
-  hook/score and your brand-kit colors. Play a preview or generate the file.
+  hook/score and your brand-kit colors, in **16:9, 9:16, or 1:1**. Play a preview
+  or generate the file.
 
 **Real and working today (with an Anthropic key connected):**
 - The **Launch Doctor** audit (`/api/audit`) — real score, breakdown, criticism.
