@@ -43,8 +43,17 @@ See `docs/PHASE10.md` for setup. Without env vars the app runs in local-only mod
 
 **P3 complete.** Add new `- [ ]` items below when expanding scope.
 
+## P4 — Production polish
+
+- [x] 5-second teaser GIF from hero render (+ ZIP export)
+- [x] Publish panel on launch kit (YouTube + Product Hunt)
+- [x] Server-side share view tracking (Postgres)
+- [x] Upload routes resolve cloud video URLs for publish
+
+**P4 complete.**
+
 Each loop iteration should:
 1. Read this file + `docs/BUILD_LOOP.md`
 2. Implement **one** unchecked task (or fix verify if red)
 3. Mark task done, run `npm run verify`
-4. **Backlog complete (Jun 2025)** — ticks should verify green only unless you add new `- [ ]` items
+4. **Backlog complete (P0–P4)** — ticks should verify green only unless you add new `- [ ]` items

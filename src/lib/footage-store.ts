@@ -73,6 +73,10 @@ export function narrationKey(projectId: string): string {
   return `narration:${projectId}`;
 }
 
+export function teaserGifKey(projectId: string): string {
+  return `gif:${projectId}`;
+}
+
 export async function saveBlob(
   key: string,
   projectId: string,

@@ -12,9 +12,10 @@ export function getShareViews(projectId: string): number {
   }
 }
 
-/** Merge real local share views into project analytics. */
-export function analyticsWithViews(project: Project): Analytics {
-  const views = getShareViews(project.id);
+/** Merge real local + optional server share views into project analytics. */
+export function analyticsWithViews(project: Project, serverViews?: number | null): Analytics {
+  const localViews = getShareViews(project.id);
+  const views = serverViews ?? localViews;
   const hasRenders = Boolean(project.renders?.length);
   const hasSocial = project.assets.social.some((a) => a.blobKey);
 

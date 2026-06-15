@@ -67,3 +67,4 @@ Set `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`. For Cloudflare R2
 | `POST /api/blobs/presign` | Presigned upload URL for footage/renders |
 | `POST /api/producthunt/publish` | Product Hunt publish stub (OAuth required) |
 | `GET /api/share/[id]/meta` | Public OG metadata for share pages |
+| `GET/POST /api/share/[id]/views` | Share page view counts (Postgres) |

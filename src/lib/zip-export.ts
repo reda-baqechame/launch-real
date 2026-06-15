@@ -64,7 +64,14 @@ export async function buildProjectZip(project: Project): Promise<Blob> {
   for (const asset of project.assets.social) {
     if (!asset.blobKey) continue;
     const blob = await getBlob(asset.blobKey, "render");
-    if (blob) files[`social/${ slug}-${asset.id}.webm`] = await blobToBytes(blob);
+    if (blob) files[`social/${slug}-${asset.id}.webm`] = await blobToBytes(blob);
+  }
+
+  const teaserKey =
+    project.assets.videos.find((v) => v.id === "v4")?.blobKey ?? `gif:${project.id}`;
+  const teaserBlob = await getBlob(teaserKey, "render");
+  if (teaserBlob?.type.includes("gif")) {
+    files[`videos/${slug}-teaser.gif`] = await blobToBytes(teaserBlob);
   }
 
   for (const asset of project.assets.productHunt) {

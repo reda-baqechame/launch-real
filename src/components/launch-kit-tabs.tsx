@@ -11,10 +11,11 @@ import { ProductVideoStudio } from "@/components/product-video";
 import { VOICE_CHIPS } from "@/lib/mock-data";
 import { useFootageUrl } from "@/lib/use-footage-url";
 import { useStore } from "@/lib/store";
-import { getBlobUrl, renderKey, saveRender } from "@/lib/footage-store";
+import { getBlobUrl, renderKey, saveRender, teaserGifKey } from "@/lib/footage-store";
 import { buildScriptFromMoments } from "@/lib/script-build";
 import { useProjectRenders } from "@/lib/use-project-renders";
 import { useSocialClips } from "@/lib/use-social-clips";
+import { PublishPanel } from "@/components/publish-panel";
 import { downloadBlob } from "@/lib/download-utils";
 import { analyticsWithViews } from "@/lib/analytics-store";
 import { loadScreenshotUrls } from "@/lib/screenshot-loader";
@@ -134,7 +135,18 @@ function CopyTab({ project }: { project: Project }) {
 export function LaunchKitTabs({ project }: { project: Project }) {
   const [tab, setTab] = useState<Tab>("Video");
   const assets = project.assets;
-  const analytics = analyticsWithViews(project);
+  const [serverViews, setServerViews] = useState<number | null>(null);
+
+  useEffect(() => {
+    void fetch(`/api/share/${project.id}/views`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { views?: number | null } | null) => {
+        if (typeof data?.views === "number") setServerViews(data.views);
+      })
+      .catch(() => setServerViews(null));
+  }, [project.id]);
+
+  const analytics = analyticsWithViews(project, serverViews);
 
   return (
     <div className="mt-8">
@@ -168,6 +180,11 @@ export function LaunchKitTabs({ project }: { project: Project }) {
                 <ProductHuntAsset key={a.id} asset={a} />
               ))}
             </div>
+            <PublishPanel
+              projectId={project.id}
+              productName={project.name}
+              tagline={project.oneLiner}
+            />
           </Section>
         )}
 
@@ -337,6 +354,22 @@ function VideoTab({ project }: { project: Project }) {
   const { items: renderItems, loading: rendersLoading } = useProjectRenders(project.renders);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [abUrls, setAbUrls] = useState<{ variant: number; hook: string; url: string }[]>([]);
+  const [teaserUrl, setTeaserUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const gifKey =
+      project.assets.videos.find((v) => v.id === "v4")?.blobKey ?? teaserGifKey(project.id);
+    let revoked: string | null = null;
+    void getBlobUrl(gifKey, "render").then((url) => {
+      if (url) {
+        revoked = url;
+        setTeaserUrl(url);
+      }
+    });
+    return () => {
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [project.assets.videos, project.id]);
   const script = defaultScript(project);
   const judge = project.judge;
   const hero =
@@ -420,6 +453,29 @@ function VideoTab({ project }: { project: Project }) {
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {teaserUrl && (
+          <div className="mb-6 rounded-xl border border-line bg-surface p-4">
+            <p className="text-sm font-medium text-ink">5-second teaser GIF</p>
+            <p className="mt-1 text-xs text-ink-mute">Muted autoplay — embed in emails, README, or PH gallery.</p>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={teaserUrl}
+              alt="Launch teaser GIF"
+              className="mt-3 max-h-64 w-full rounded-lg border border-line object-contain bg-base"
+            />
+            <button
+              onClick={() => {
+                void fetch(teaserUrl)
+                  .then((r) => r.blob())
+                  .then((blob) => downloadBlob(blob, "launchreel-teaser.gif"));
+              }}
+              className="mt-3 rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft hover:border-line-strong hover:text-ink"
+            >
+              Download GIF
+            </button>
           </div>
         )}
 

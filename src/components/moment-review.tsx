@@ -17,7 +17,8 @@ import {
   getTtsProvider,
 } from "@/lib/ai";
 import { formatTimecode, grabFrame } from "@/lib/director";
-import { getBlob, getBlobUrl, narrationKey, renderKey, saveBlob, saveRender, socialClipKey, variantRenderKey } from "@/lib/footage-store";
+import { getBlob, getBlobUrl, narrationKey, renderKey, saveBlob, saveRender, socialClipKey, teaserGifKey, variantRenderKey } from "@/lib/footage-store";
+import { renderTeaserGif } from "@/lib/teaser-gif";
 import { loadScreenshotUrls, momentsFromScreenshots } from "@/lib/screenshot-loader";
 import { buildLaunchKitAssets, drawPhPoster } from "@/lib/launch-kit-build";
 import { planSocialClips } from "@/lib/social-clips";
@@ -327,6 +328,27 @@ export function MomentReview({ project }: { project: Project }) {
       );
       attachRenders(project.id, renders);
       results.forEach((r) => URL.revokeObjectURL(r.url));
+
+      try {
+        const heroKey = renders.find((r) => r.aspect === "16:9")?.blobKey;
+        if (heroKey) {
+          const heroBlob = await getBlob(heroKey, "render");
+          if (heroBlob) {
+            const heroUrl = URL.createObjectURL(heroBlob);
+            const gifBlob = await renderTeaserGif(heroUrl);
+            URL.revokeObjectURL(heroUrl);
+            const gKey = teaserGifKey(project.id);
+            await saveBlob(gKey, project.id, gifBlob, "render");
+            attachAssets(project.id, {
+              videos: project.assets.videos.map((v) =>
+                v.id === "v4" ? { ...v, blobKey: gKey, meta: "5s · muted autoplay · GIF" } : v,
+              ),
+            });
+          }
+        }
+      } catch {
+        /* teaser GIF optional */
+      }
 
       setStep(5);
       const clipPlans = planSocialClips(selected, script!.hook, script!.cta);

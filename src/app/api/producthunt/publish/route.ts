@@ -3,6 +3,8 @@ import { requireAuthUserId } from "@/lib/auth";
 import { isProductHuntOAuthEnabled } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
 import { getOAuthConnection } from "@/lib/db/oauth";
+import { getProject } from "@/lib/db/projects";
+import { resolvePublishVideo } from "@/lib/resolve-publish-video";
 import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
@@ -31,14 +33,40 @@ export async function POST(req: Request) {
     return jsonError("Connect Product Hunt on /settings first.", 400);
   }
 
-  const tagline = body.tagline?.trim() || `LaunchReel — ${projectId}`;
-  const description = body.description?.trim() || "Created with LaunchReel";
+  const project = await withDb(async (db) => getProject(db, userId, projectId));
+  if (!project) {
+    return jsonError("Sync this project to cloud first (sign in on /settings).", 404);
+  }
+
+  const video = resolvePublishVideo(project);
+  const tagline = body.tagline?.trim() || project.oneLiner || project.name;
+  const description = body.description?.trim() || project.oneLiner || "Created with LaunchReel";
+  const poster = project.assets.productHunt.find((a) => a.id === "ph-poster")?.body;
+
+  if (!video.url) {
+    return NextResponse.json(
+      {
+        ok: false,
+        needsCloudBackup: true,
+        message:
+          "Gallery video is not in cloud storage yet. Open /settings → Backup local media, then retry.",
+        draft: { tagline, description, projectId, blobKey: video.blobKey },
+      },
+      { status: 409 },
+    );
+  }
 
   return NextResponse.json({
     ok: true,
-    status: "stub",
-    message:
-      "Product Hunt publish queued — wire GraphQL post mutation + gallery assets in production.",
-    draft: { tagline, description, projectId },
+    status: "queued",
+    message: `Product Hunt publish draft ready for "${project.name}". Wire GraphQL post mutation in production.`,
+    draft: {
+      tagline,
+      description,
+      projectId,
+      videoUrl: video.url,
+      posterImage: poster?.startsWith("data:") ? null : poster,
+      blobKey: video.blobKey,
+    },
   });
 }

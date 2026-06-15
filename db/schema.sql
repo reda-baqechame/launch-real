@@ -44,3 +44,9 @@ CREATE TABLE IF NOT EXISTS oauth_connections (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (clerk_id, provider)
 );
+
+CREATE TABLE IF NOT EXISTS share_views (
+  project_id TEXT PRIMARY KEY,
+  view_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

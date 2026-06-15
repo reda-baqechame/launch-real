@@ -20,6 +20,13 @@ function logShareView(projectId: string) {
   }
 }
 
+function trackShareView(projectId: string) {
+  logShareView(projectId);
+  void fetch(`/api/share/${projectId}/views`, { method: "POST" }).catch(() => {
+    /* offline or DB disabled */
+  });
+}
+
 export default function SharePage() {
   const { project, hydrated } = useRouteProject();
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -29,7 +36,7 @@ export default function SharePage() {
 
   useEffect(() => {
     if (!project) return;
-    logShareView(project.id);
+    trackShareView(project.id);
     let revoked: string | null = null;
     const load = async () => {
       setLoading(true);
@@ -39,7 +46,7 @@ export default function SharePage() {
 
         const media = await resolveShareVideo(project);
         if (media) {
-          revoked = media.url;
+          if (media.url.startsWith("blob:")) revoked = media.url;
           setVideoUrl(media.url);
           setMediaKind(media.kind);
         }

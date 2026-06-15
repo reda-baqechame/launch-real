@@ -4,54 +4,48 @@
 
 Turn screen recordings, URLs, or screenshots into professional launch videos, Product Hunt assets, and interactive demos — without going on camera.
 
-## Run it
+## Quick start
 
 ```bash
 npm install
-npx playwright install chromium   # for browser-agent URL capture
-npm run dev      # http://localhost:3000
-npm run build
-npm run lint
+npx playwright install chromium   # browser-agent URL capture
+npm run dev                       # http://localhost:3000
+npm run verify                    # build + lint
 ```
 
-## What's working
+Copy `.env.example` → `.env.local` to enable optional cloud features (Clerk, Postgres, Stripe, S3/R2, OAuth).
 
-### Intelligence (BYO Anthropic key)
-- Launch Doctor audit (`/api/audit`)
-- Frame-based moment analysis + optional Whisper transcript (`/api/analyze`, `/api/transcribe`)
-- Best-of-2 script variants with quality judge (`/api/script`, `/api/judge`)
-- Launch captions + social clip captions (`/api/captions`)
-- Copy rewrite + localization (`/api/rewrite`, `/api/localize`)
+## What’s built (P0–P4 complete)
 
-### Media engine (client-side)
-- **Intake** — record, upload video, upload screenshots, paste PRD on `/new`
-- **Shot-list compositor** — cuts to selected moments with zoom + captions
-- **Ken-Burns path** — screenshot uploads render as true image Ken-Burns (main video + social clips)
-- **A/B hook previews** — proxy renders of both script variants before final render
-- **Social clips** — 3× 9:16 clips with platform captions
-- **Product Hunt kit** — gallery poster, screenshots, linked hero video
-- **ZIP export** — one-click `{project}-launch-kit.zip`
-- **Interactive demo** — auto-prefilled from uploaded screenshots
-- **Brand kit** — persisted in localStorage, applied to renders
-- **Share page** — `/share/[id]` with render → social → footage fallback + PH poster
+**Full consolidated reference → [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md)**
 
-### Cloud (optional — `.env.local`)
-- Clerk auth + Postgres project sync (bidirectional on sign-in)
-- Stripe credits + render queue + Trigger.dev hook
-- YouTube / Product Hunt OAuth on `/settings`
-- See `docs/PHASE10.md`
+| Area | Highlights |
+|------|------------|
+| **Intake** | Record, upload video/screenshots, PRD paste, PH draft URL, Playwright agent |
+| **AI** | Launch Doctor audit, moment analysis, best-of-2 scripts + judge, captions, rewrite, localize, TTS |
+| **Media** | Shot-list compositor, Ken-Burns screenshots, A/B hook previews, 3× social clips, teaser GIF |
+| **Launch kit** | PH gallery, copy, landing page, ZIP export, brand kit, interactive demo builder |
+| **Share** | Public `/share/[id]`, OG meta, view analytics (local + Postgres) |
+| **Cloud** | Clerk auth, Postgres sync, S3/R2 blob backup, Stripe credits, OAuth publish panel |
+| **Loop** | Agent build loop — `npm run loop:tick` · see `docs/BUILD_LOOP.md` |
 
-### Flow
-`/new` or `/record` → audit → angle → moments → generate kit → result → share
+## Flow
 
-### Build loop
-Autonomous agent iteration — see `docs/BUILD_LOOP.md`. Run `npm run loop:tick` or `npm run loop:start`.
+```
+/new or /record → audit → angle → moments → generate → result → share
+```
 
 ## Architecture
 
-- **Client-first default**: localStorage (metadata) + IndexedDB (blobs) — works without any cloud env vars
-- **Phase 10 (optional)**: Clerk auth, Postgres project sync, Stripe credits, Trigger.dev queue, OAuth — see `docs/PHASE10.md`
+- **Default**: localStorage (metadata) + IndexedDB (blobs) — no backend required
+- **Optional Phase 10**: Clerk, Postgres, Stripe, Trigger.dev, S3/R2, OAuth — see `docs/PHASE10.md`
 - **BYO keys**: Anthropic (AI), OpenAI (Whisper + TTS) or ElevenLabs (TTS)
-- **Agent**: Node.js + Playwright for Magic URL capture
 
-Copy `.env.example` → `.env.local` to enable cloud features.
+## Docs
+
+| File | Purpose |
+|------|---------|
+| [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md) | Consolidated feature list + API map |
+| [`docs/PHASE10.md`](docs/PHASE10.md) | Cloud setup guide |
+| [`docs/BUILD_LOOP.md`](docs/BUILD_LOOP.md) | Agent build loop |
+| [`BUILD_BACKLOG.md`](BUILD_BACKLOG.md) | Checkbox backlog (all complete) |
