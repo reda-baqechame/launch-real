@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuthUserId } from "@/lib/auth";
+import { createOAuthState } from "@/lib/oauth-state";
 import { appBaseUrl, isProductHuntOAuthEnabled } from "@/lib/cloud/config";
 import { isNextResponse, jsonError } from "@/lib/api-helpers";
 
@@ -17,7 +18,7 @@ export async function GET() {
     client_id: process.env.PRODUCT_HUNT_CLIENT_ID!,
     redirect_uri: `${appBaseUrl()}/api/oauth/producthunt/callback`,
     response_type: "code",
-    state: userId,
+    state: createOAuthState(userId),
   });
 
   return NextResponse.redirect(

@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { NextResponse } from "next/server";
 import { isStripeEnabled } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
+import { claimStripeEvent } from "@/lib/db/stripe-events";
 import { addCredits, ensureAppUser } from "@/lib/db/users";
 
 export const runtime = "nodejs";
@@ -27,15 +28,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
   }
 
+  const claimed = await withDb(async (db) => claimStripeEvent(db!, event.id));
+  if (claimed === null) {
+    return NextResponse.json({ error: "Database unavailable." }, { status: 503 });
+  }
+  if (!claimed) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    const clerkId = session.metadata?.clerkId;
-    const credits = Number(session.metadata?.credits ?? 0);
-    if (clerkId && credits > 0) {
-      await withDb(async (db) => {
-        await ensureAppUser(db, clerkId, session.customer_email);
-        await addCredits(db, clerkId, credits);
-      });
+    if (session.payment_status === "paid" && session.status === "complete") {
+      const clerkId = session.metadata?.clerkId;
+      const credits = Number(session.metadata?.credits ?? 0);
+      if (clerkId && credits > 0) {
+        await withDb(async (db) => {
+          await ensureAppUser(db!, clerkId, session.customer_email);
+          await addCredits(db!, clerkId, credits);
+        });
+      }
     }
   }
 

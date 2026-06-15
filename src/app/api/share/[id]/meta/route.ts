@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolveTrustedBlobUrl } from "@/lib/blob-url";
 import { withDb } from "@/lib/db/client";
 import { appBaseUrl } from "@/lib/cloud/config";
 import type { Project } from "@/lib/types";
@@ -29,7 +30,9 @@ export async function GET(_req: Request, ctx: RouteCtx) {
   const renderKey =
     project.renders?.find((r) => r.aspect === "16:9")?.blobKey ??
     project.renders?.[0]?.blobKey;
-  const video = renderKey ? project.cloudBlobs?.[renderKey]?.url ?? null : null;
+  const video = renderKey ?
+    resolveTrustedBlobUrl(project.cloudBlobs?.[renderKey])
+  : null;
   const poster = project.assets.productHunt.find((a) => a.id === "ph-poster")?.body;
   const image =
     (poster?.startsWith("data:") ? null : poster) ??

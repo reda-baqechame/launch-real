@@ -6,7 +6,8 @@ import {
   incrementShareEvent,
   type ShareEventType,
 } from "@/lib/db/share-views";
-import { isNextResponse, parseJsonBody } from "@/lib/api-helpers";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { isNextResponse, jsonError, parseJsonBody } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 
@@ -31,6 +32,11 @@ export async function GET(_req: Request, ctx: RouteCtx) {
 
 export async function POST(req: Request, ctx: RouteCtx) {
   const { id } = await ctx.params;
+
+  if (!rateLimit(`share:${clientIp(req)}:${id}`, 60, 60_000)) {
+    return jsonError("Too many analytics events.", 429);
+  }
+
   const body = await parseJsonBody<{ event?: string }>(req);
   const event = (
     !isNextResponse(body) && VALID.includes(body.event as ShareEventType) ?

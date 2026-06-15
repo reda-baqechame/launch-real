@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     return jsonError("Sync this project to cloud first (sign in on /settings).", 404);
   }
 
-  const video = resolvePublishVideo(project);
+  const video = resolvePublishVideo(project, userId);
   if (!video.url) {
     return NextResponse.json(
       {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuthUserId } from "@/lib/auth";
+import { createOAuthState } from "@/lib/oauth-state";
 import { appBaseUrl, isYouTubeOAuthEnabled } from "@/lib/cloud/config";
 import { isNextResponse, jsonError } from "@/lib/api-helpers";
 
@@ -23,7 +24,7 @@ export async function GET() {
     ].join(" "),
     access_type: "offline",
     prompt: "consent",
-    state: userId,
+    state: createOAuthState(userId),
   });
 
   return NextResponse.redirect(

@@ -66,12 +66,14 @@ export async function updateRenderJobStatus(
   jobId: string,
   status: RenderJobStatus,
   patch?: { result?: Record<string, unknown>; error?: string },
-): Promise<void> {
-  await db.query(
+): Promise<boolean> {
+  const res = await db.query(
     `UPDATE render_jobs SET status = $2, result = COALESCE($3, result), error = COALESCE($4, error), updated_at = NOW()
-     WHERE id = $1`,
+     WHERE id = $1 AND status IN ('queued', 'processing')
+     RETURNING id`,
     [jobId, status, patch?.result ?? null, patch?.error ?? null],
   );
+  return (res.rowCount ?? 0) > 0;
 }
 
 export async function listRenderJobs(

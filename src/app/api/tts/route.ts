@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { LIMITS, trimText } from "@/lib/api-limits";
 import { jsonError, parseJsonBody, isNextResponse, requireNonEmpty } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
@@ -10,8 +11,9 @@ export async function POST(req: Request) {
   const body = await parseJsonBody<{ text: string; language?: string; provider?: string }>(req);
   if (isNextResponse(body)) return body;
 
-  const text = requireNonEmpty(body.text, "text");
-  if (isNextResponse(text)) return text;
+  const rawText = requireNonEmpty(body.text, "text");
+  if (isNextResponse(rawText)) return rawText;
+  const text = trimText(rawText, LIMITS.ttsTextChars);
 
   const provider = body.provider ?? (openaiKey ? "openai" : "elevenlabs");
 
@@ -31,8 +33,7 @@ export async function POST(req: Request) {
         }),
       });
       if (!res.ok) {
-        const err = await res.text();
-        return NextResponse.json({ error: err || "OpenAI TTS failed." }, { status: 502 });
+        return jsonError("OpenAI TTS failed.", 502);
       }
       const audio = await res.arrayBuffer();
       return new NextResponse(audio, {
@@ -57,14 +58,13 @@ export async function POST(req: Request) {
             Accept: "audio/mpeg",
           },
           body: JSON.stringify({
-            text: text,
+            text,
             model_id: "eleven_multilingual_v2",
           }),
         },
       );
       if (!res.ok) {
-        const err = await res.text();
-        return NextResponse.json({ error: err || "ElevenLabs TTS failed." }, { status: 502 });
+        return jsonError("ElevenLabs TTS failed.", 502);
       }
       const audio = await res.arrayBuffer();
       return new NextResponse(audio, {

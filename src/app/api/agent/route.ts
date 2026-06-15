@@ -4,6 +4,8 @@ import { chromium } from "playwright";
 import { mkdir, readFile, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { sameHostname, validatePublicHttpsUrl } from "@/lib/url-safety-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -32,6 +34,10 @@ const ACTION_SCHEMA = {
 } as const;
 
 export async function POST(req: Request) {
+  if (!rateLimit(`agent:${clientIp(req)}`, 6, 60_000)) {
+    return NextResponse.json({ error: "Too many agent requests. Try again shortly." }, { status: 429 });
+  }
+
   const key = req.headers.get("x-anthropic-key");
   if (!key) {
     return NextResponse.json({ error: "No Anthropic key." }, { status: 400 });
@@ -47,6 +53,16 @@ export async function POST(req: Request) {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid body." }, { status: 400 });
+  }
+
+  let startUrl: URL;
+  try {
+    startUrl = await validatePublicHttpsUrl(body.url);
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "URL not allowed." },
+      { status: 400 },
+    );
   }
 
   const sessionDir = join(tmpdir(), `launchreel-agent-${Date.now()}`);
@@ -66,7 +82,7 @@ export async function POST(req: Request) {
     const page = await context.newPage();
     const client = new Anthropic({ apiKey: key });
 
-    await page.goto(body.url, { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.goto(startUrl.href, { waitUntil: "domcontentloaded", timeout: 30000 });
     const planText =
       body.plan?.steps.map((s, i) => `${i + 1}. ${s.goal}: ${s.action}`).join("\n") ??
       "Explore the product and show the core feature.";
@@ -102,19 +118,36 @@ export async function POST(req: Request) {
 
       const textBlock = message.content.find((b) => b.type === "text");
       if (!textBlock || textBlock.type !== "text") break;
-      const action = JSON.parse(textBlock.text) as {
+      let action: {
         done: boolean;
         action?: string;
         selector?: string;
         text?: string;
         url?: string;
       };
+      try {
+        action = JSON.parse(textBlock.text) as {
+          done: boolean;
+          action?: string;
+          selector?: string;
+          text?: string;
+          url?: string;
+        };
+      } catch {
+        partial = true;
+        break;
+      }
 
       if (action.done) break;
 
       try {
         if (action.action === "goto" && action.url) {
-          await page.goto(action.url, { waitUntil: "domcontentloaded", timeout: 15000 });
+          const nextUrl = await validatePublicHttpsUrl(action.url);
+          if (!sameHostname(startUrl, nextUrl)) {
+            partial = true;
+            break;
+          }
+          await page.goto(nextUrl.href, { waitUntil: "domcontentloaded", timeout: 15000 });
         } else if (action.action === "click" && action.selector) {
           const el = page.locator(action.selector).first();
           const box = await el.boundingBox();

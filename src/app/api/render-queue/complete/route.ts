@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isCloudSyncEnabled } from "@/lib/cloud/config";
+import { isCloudSyncEnabled, isProduction } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
 import { updateRenderJobStatus } from "@/lib/db/render-jobs";
 import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty } from "@/lib/api-helpers";
@@ -13,7 +13,11 @@ export async function POST(req: Request) {
   }
 
   const secret = process.env.RENDER_WEBHOOK_SECRET;
-  if (secret) {
+  if (!secret) {
+    if (isProduction()) {
+      return jsonError("RENDER_WEBHOOK_SECRET is required in production.", 503);
+    }
+  } else {
     const auth = req.headers.get("authorization");
     if (auth !== `Bearer ${secret}`) {
       return jsonError("Unauthorized.", 401);
@@ -32,12 +36,19 @@ export async function POST(req: Request) {
   if (isNextResponse(jobId)) return jobId;
 
   const status = body.status === "failed" ? "failed" : "done";
-  await withDb(async (db) =>
+  const updated = await withDb(async (db) =>
     updateRenderJobStatus(db, jobId, status, {
       result: body.result,
-      error: body.error,
+      error: body.error?.slice(0, 500),
     }),
   );
+
+  if (updated === null) {
+    return jsonError("Database unavailable.", 503);
+  }
+  if (!updated) {
+    return jsonError("Render job not found or already finalized.", 404);
+  }
 
   return NextResponse.json({ ok: true, jobId, status });
 }

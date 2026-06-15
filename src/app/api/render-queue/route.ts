@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { getAuthEmail, requireAuthUserId } from "@/lib/auth";
+import { isAllowedRenderAspect } from "@/lib/api-limits";
 import { isCloudSyncEnabled } from "@/lib/cloud/config";
 import { dispatchTriggerRenderJob } from "@/lib/cloud/trigger";
 import { withDb } from "@/lib/db/client";
+import { getProject } from "@/lib/db/projects";
 import { createRenderJob, getRenderJob, listRenderJobs } from "@/lib/db/render-jobs";
-import { ensureAppUser, consumeCredit, getAppUser } from "@/lib/db/users";
+import { addCredits, ensureAppUser, consumeCredit, getAppUser } from "@/lib/db/users";
 import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
@@ -23,7 +25,17 @@ export async function POST(req: Request) {
   const projectId = requireNonEmpty(body.projectId, "projectId");
   if (isNextResponse(projectId)) return projectId;
 
-  const aspects = body.aspects?.length ? body.aspects : ["16:9", "9:16", "1:1"];
+  const aspects = (body.aspects?.length ? body.aspects : ["16:9", "9:16", "1:1"]).filter(
+    isAllowedRenderAspect,
+  );
+  if (!aspects.length) {
+    return jsonError("Invalid aspects.", 400);
+  }
+
+  const project = await withDb(async (db) => getProject(db, userId, projectId));
+  if (!project) {
+    return jsonError("Sync this project to cloud first (sign in on /settings).", 404);
+  }
 
   const user = await withDb(async (db) => {
     await ensureAppUser(db, userId, await getAuthEmail());
@@ -40,12 +52,18 @@ export async function POST(req: Request) {
   }
 
   const jobId = `job_${crypto.randomUUID()}`;
-  const triggerRunId = await dispatchTriggerRenderJob({
-    jobId,
-    projectId,
-    clerkId: userId,
-    aspects,
-  });
+  let triggerRunId: string | null = null;
+  try {
+    triggerRunId = await dispatchTriggerRenderJob({
+      jobId,
+      projectId,
+      clerkId: userId,
+      aspects,
+    });
+  } catch {
+    await withDb(async (db) => addCredits(db, userId, 1));
+    return jsonError("Could not dispatch render job.", 502);
+  }
 
   const job = await withDb(async (db) =>
     createRenderJob(db, {
@@ -56,6 +74,11 @@ export async function POST(req: Request) {
       triggerRunId: triggerRunId ?? undefined,
     }),
   );
+
+  if (!job) {
+    await withDb(async (db) => addCredits(db, userId, 1));
+    return jsonError("Could not create render job.", 503);
+  }
 
   return NextResponse.json({ job, triggerDispatched: Boolean(triggerRunId) });
 }

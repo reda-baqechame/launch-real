@@ -59,3 +59,8 @@ CREATE TABLE IF NOT EXISTS share_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_share_events_project ON share_events(project_id, event_type);
+
+CREATE TABLE IF NOT EXISTS stripe_webhook_events (
+  event_id TEXT PRIMARY KEY,
+  processed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

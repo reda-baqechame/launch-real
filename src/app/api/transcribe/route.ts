@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { LIMITS } from "@/lib/api-limits";
 import { jsonError } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
@@ -20,6 +21,9 @@ export async function POST(req: Request) {
   if (!(file instanceof Blob) || file.size === 0) {
     return jsonError("No audio/file file provided.", 400);
   }
+  if (file.size > LIMITS.transcribeBytes) {
+    return jsonError("File too large for transcription.", 413);
+  }
 
   const body = new FormData();
   body.append("file", file, "recording.webm");
@@ -33,8 +37,7 @@ export async function POST(req: Request) {
       body,
     });
     if (!res.ok) {
-      const err = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-      return jsonError(err.error?.message || `Transcription failed (${res.status}).`, res.status);
+      return jsonError(`Transcription failed (${res.status}).`, res.status >= 500 ? 502 : res.status);
     }
     const data = (await res.json()) as { text?: string };
     return NextResponse.json({ text: data.text?.trim() ?? "" });

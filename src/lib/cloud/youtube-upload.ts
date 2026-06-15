@@ -1,3 +1,5 @@
+import { isAllowedBlobPublicUrl } from "@/lib/blob-hosts";
+
 export interface YouTubeUploadInput {
   accessToken: string;
   videoUrl: string;
@@ -21,6 +23,10 @@ function videoContentType(url: string): string {
 export async function uploadVideoToYouTube(
   input: YouTubeUploadInput,
 ): Promise<YouTubeUploadResult> {
+  if (!isAllowedBlobPublicUrl(input.videoUrl)) {
+    throw new Error("Video URL is not from configured object storage.");
+  }
+
   const contentType = videoContentType(input.videoUrl);
 
   const initRes = await fetch(
@@ -47,19 +53,24 @@ export async function uploadVideoToYouTube(
   );
 
   if (!initRes.ok) {
-    const err = await initRes.text();
-    throw new Error(`YouTube upload init failed (${initRes.status}): ${err.slice(0, 200)}`);
+    throw new Error(`YouTube upload init failed (${initRes.status}).`);
   }
 
   const uploadUrl = initRes.headers.get("Location");
   if (!uploadUrl) throw new Error("YouTube did not return a resumable upload URL.");
 
-  const videoRes = await fetch(input.videoUrl);
+  const videoRes = await fetch(input.videoUrl, { redirect: "follow" });
   if (!videoRes.ok) {
     throw new Error(`Could not fetch cloud video (${videoRes.status}).`);
   }
+  if (videoRes.url && !isAllowedBlobPublicUrl(videoRes.url)) {
+    throw new Error("Video redirect target is not allowed.");
+  }
 
   const bytes = Buffer.from(await videoRes.arrayBuffer());
+  if (bytes.length > 500 * 1024 * 1024) {
+    throw new Error("Video exceeds maximum upload size.");
+  }
 
   const putRes = await fetch(uploadUrl, {
     method: "PUT",
@@ -71,8 +82,7 @@ export async function uploadVideoToYouTube(
   });
 
   if (!putRes.ok) {
-    const err = await putRes.text();
-    throw new Error(`YouTube upload failed (${putRes.status}): ${err.slice(0, 200)}`);
+    throw new Error(`YouTube upload failed (${putRes.status}).`);
   }
 
   const data = (await putRes.json()) as { id?: string };

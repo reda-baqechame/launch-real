@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyOAuthState } from "@/lib/oauth-state";
 import { appBaseUrl, isProductHuntOAuthEnabled } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
 import { upsertOAuthConnection } from "@/lib/db/oauth";
@@ -12,7 +13,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
-  const clerkId = url.searchParams.get("state");
+  const clerkId = verifyOAuthState(url.searchParams.get("state"));
 
   if (!code || !clerkId) {
     return NextResponse.redirect(`${appBaseUrl()}/settings?oauth=ph_denied`);

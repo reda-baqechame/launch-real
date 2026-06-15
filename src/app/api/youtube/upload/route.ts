@@ -7,7 +7,7 @@ import { withDb } from "@/lib/db/client";
 import { getOAuthConnection } from "@/lib/db/oauth";
 import { getProject } from "@/lib/db/projects";
 import { resolvePublishVideo } from "@/lib/resolve-publish-video";
-import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty } from "@/lib/api-helpers";
+import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty, safeClientError } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     return jsonError("Sync this project to cloud first (sign in on /settings).", 404);
   }
 
-  const video = resolvePublishVideo(project);
+  const video = resolvePublishVideo(project, userId);
   const title = body.title?.trim() || `${project.name} — launch video`;
   const description = body.description?.trim() || project.oneLiner || "Created with LaunchReel";
 
@@ -75,12 +75,12 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       status: "uploaded",
-      message: `Uploaded to YouTube as unlisted: ${uploaded.url}`,
+      message: `Uploaded to YouTube (${body.privacyStatus ?? "unlisted"}): ${uploaded.url}`,
       videoId: uploaded.videoId,
       url: uploaded.url,
       projectId,
     });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : "YouTube upload failed.", 502);
+    return safeClientError(e, "YouTube upload failed.");
   }
 }

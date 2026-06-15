@@ -216,6 +216,22 @@ Docs: `docs/BUILD_LOOP.md`
 
 ---
 
+## Production hardening
+
+- **SSRF protection** — agent URL validation, PH draft redirect checks, blob URLs allowlisted to S3/R2 only
+- **OAuth CSRF** — HMAC-signed `state` on YouTube + Product Hunt flows
+- **Webhook auth** — `RENDER_WEBHOOK_SECRET` required in production; jobs only finalize from `queued`/`processing`
+- **Stripe idempotency** — `stripe_webhook_events` table; credits only on `payment_status=paid`
+- **Ownership checks** — presign, render queue, and Lambda routes verify project belongs to user
+- **Rate limits** — agent, share analytics, PH draft (in-memory per instance)
+- **Payload caps** — TTS text, transcribe file size, analyze frames, sync batch size
+- **Security headers** — `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` via `next.config.ts`
+- **Safe errors** — upstream API messages not leaked to clients on sensitive routes
+
+Required production env: `RENDER_WEBHOOK_SECRET`, `OAUTH_STATE_SECRET` (or `CLERK_SECRET_KEY`), `NEXT_PUBLIC_APP_URL`.
+
+---
+
 ## Platform limits (not code gaps)
 
 | Limit | Reason |

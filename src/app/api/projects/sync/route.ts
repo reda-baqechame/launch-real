@@ -4,6 +4,7 @@ import { isCloudSyncEnabled } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
 import { listProjects, upsertProject } from "@/lib/db/projects";
 import { ensureAppUser } from "@/lib/db/users";
+import { LIMITS } from "@/lib/api-limits";
 import { isNextResponse, jsonError, parseJsonBody } from "@/lib/api-helpers";
 import type { Project } from "@/lib/types";
 
@@ -21,7 +22,7 @@ export async function POST(req: Request) {
   const body = await parseJsonBody<{ projects?: Project[] }>(req);
   if (isNextResponse(body)) return body;
 
-  const incoming = body.projects ?? [];
+  const incoming = (body.projects ?? []).slice(0, LIMITS.syncProjectsBatch);
 
   const merged = await withDb(async (db) => {
     await ensureAppUser(db, userId, await getAuthEmail());

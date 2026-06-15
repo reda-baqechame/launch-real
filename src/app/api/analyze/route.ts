@@ -7,6 +7,7 @@ import {
   parseJsonBody,
   requireAnthropicKey,
 } from "@/lib/api-helpers";
+import { LIMITS } from "@/lib/api-limits";
 export const runtime = "nodejs";
 
 const ANALYZE_SCHEMA = {
@@ -76,6 +77,14 @@ export async function POST(req: Request) {
     return jsonError("No frames provided.", 400);
   }
 
+  const frames = body.frames.slice(0, LIMITS.analyzeFrames).filter((f) => {
+    const data = f.dataUrl?.replace(/^data:image\/\w+;base64,/, "") ?? "";
+    return data.length > 0 && data.length <= LIMITS.analyzeFrameBase64Chars;
+  });
+  if (!frames.length) {
+    return jsonError("No valid frames provided.", 400);
+  }
+
   const client = new Anthropic({ apiKey: key });
 
   const content: Anthropic.MessageCreateParams["messages"][0]["content"] = [
@@ -86,13 +95,13 @@ export async function POST(req: Request) {
         body.contextLine ? `Product context: ${body.contextLine}` : null,
         body.hasAudio ? "The recording has audio (narration may exist)." : "Silent recording.",
         body.transcript ? `Transcript anchor:\n${body.transcript}` : null,
-        "Frame timestamps (seconds): " + body.frames.map((f) => f.tSec.toFixed(1)).join(", "),
+        "Frame timestamps (seconds): " + frames.map((f) => f.tSec.toFixed(1)).join(", "),
         "Identify the best moments for a marketing launch video.",
       ]
         .filter(Boolean)
         .join("\n\n"),
     },
-    ...body.frames.slice(0, 12).map((f) => ({
+    ...frames.map((f) => ({
       type: "image" as const,
       source: {
         type: "base64" as const,

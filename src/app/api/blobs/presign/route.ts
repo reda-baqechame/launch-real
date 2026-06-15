@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import { requireAuthUserId } from "@/lib/auth";
 import { createPresignedUpload } from "@/lib/cloud/blob-storage";
-import { isBlobStorageEnabled } from "@/lib/cloud/config";
-import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty } from "@/lib/api-helpers";
+import { isBlobStorageEnabled, isCloudSyncEnabled } from "@/lib/cloud/config";
+import { withDb } from "@/lib/db/client";
+import { getProject } from "@/lib/db/projects";
+import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty, safeClientError } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   if (!isBlobStorageEnabled()) {
     return jsonError("Blob storage is not configured (S3/R2).", 503);
+  }
+  if (!isCloudSyncEnabled()) {
+    return jsonError("Cloud sync requires Postgres + Clerk.", 503);
   }
 
   const userId = await requireAuthUserId();
@@ -26,6 +31,14 @@ export async function POST(req: Request) {
 
   const blobKey = requireNonEmpty(body.blobKey, "blobKey");
   if (isNextResponse(blobKey)) return blobKey;
+  if (blobKey.length > 256) {
+    return jsonError("blobKey too long.", 400);
+  }
+
+  const project = await withDb(async (db) => getProject(db, userId, projectId));
+  if (!project) {
+    return jsonError("Project not found.", 404);
+  }
 
   try {
     const presigned = await createPresignedUpload({
@@ -36,6 +49,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(presigned);
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : "Presign failed.", 500);
+    return safeClientError(e, "Presign failed.");
   }
 }

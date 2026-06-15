@@ -32,7 +32,18 @@ export function requireNonEmpty(value: unknown, field: string): string | NextRes
 
 export function handleAnthropicError(err: unknown, fallback = "Request failed."): NextResponse {
   if (err instanceof Anthropic.APIError) {
-    return jsonError(err.message || fallback, err.status ?? 502);
+    const status = err.status ?? 502;
+    const safe =
+      status === 401 || status === 403 ?
+        "Invalid Anthropic API key."
+      : status === 429 ?
+        "Anthropic rate limit reached — try again shortly."
+      : fallback;
+    return jsonError(safe, status >= 400 && status < 600 ? status : 502);
   }
+  return jsonError(fallback, 500);
+}
+
+export function safeClientError(_err: unknown, fallback: string): NextResponse {
   return jsonError(fallback, 500);
 }
