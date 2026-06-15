@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Eyebrow } from "@/components/ui";
 import { Recorder } from "@/components/recorder";
 
@@ -13,7 +14,15 @@ export default function RecordPage() {
         docs, or a full launch kit.
       </p>
       <div className="mt-8">
-        <Recorder />
+        <Suspense
+          fallback={
+            <div className="flex min-h-[24rem] items-center justify-center text-sm text-ink-mute">
+              Loading recorder…
+            </div>
+          }
+        >
+          <Recorder />
+        </Suspense>
       </div>
     </div>
   );

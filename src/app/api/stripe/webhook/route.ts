@@ -1,0 +1,43 @@
+import Stripe from "stripe";
+import { NextResponse } from "next/server";
+import { isStripeEnabled } from "@/lib/cloud/config";
+import { withDb } from "@/lib/db/client";
+import { addCredits, ensureAppUser } from "@/lib/db/users";
+
+export const runtime = "nodejs";
+
+export async function POST(req: Request) {
+  if (!isStripeEnabled()) {
+    return NextResponse.json({ error: "Stripe not configured." }, { status: 503 });
+  }
+
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  const sig = req.headers.get("stripe-signature");
+  if (!sig) return NextResponse.json({ error: "Missing signature." }, { status: 400 });
+
+  const rawBody = await req.text();
+  let event: Stripe.Event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      rawBody,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET!,
+    );
+  } catch {
+    return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
+  }
+
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    const clerkId = session.metadata?.clerkId;
+    const credits = Number(session.metadata?.credits ?? 0);
+    if (clerkId && credits > 0) {
+      await withDb(async (db) => {
+        await ensureAppUser(db, clerkId, session.customer_email);
+        await addCredits(db, clerkId, credits);
+      });
+    }
+  }
+
+  return NextResponse.json({ received: true });
+}

@@ -1,6 +1,8 @@
 "use client";
 
-import { Button, Card, Eyebrow, Pill } from "@/components/ui";
+import { DownloadAllButton } from "@/components/download-all-button";
+import { RegeneratePanel } from "@/components/regenerate-panel";
+import { ButtonLink, Card, Eyebrow, Pill } from "@/components/ui";
 import { FlowSteps } from "@/components/flow-steps";
 import { LaunchKitTabs } from "@/components/launch-kit-tabs";
 import { ProjectMissing, useRouteProject } from "@/components/project-gate";
@@ -29,11 +31,16 @@ export default function ResultPage() {
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <Button size="lg">Download all assets</Button>
-            <p className="text-xs text-ink-mute">Agency deliverable, in one ZIP.</p>
+            <ButtonLink href={`/projects/${project.id}/demo`} variant="secondary" size="md">
+              Create interactive demo
+            </ButtonLink>
+            <DownloadAllButton project={project} />
+            <p className="text-xs text-ink-mute">Videos, PH images, copy, social clips, and narration audio in one ZIP.</p>
           </div>
         </div>
       </Card>
+
+      <RegeneratePanel project={project} />
 
       <LaunchKitTabs project={project} />
     </div>

@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, ButtonLink, Card, Pill } from "@/components/ui";
 import { AssetAction } from "@/components/asset-bits";
 import { cn } from "@/lib/cn";
+import { footageKey, saveBlob } from "@/lib/footage-store";
+import { parseRecordReturnParams } from "@/lib/record-return";
+import { storageErrorMessage } from "@/lib/storage-errors";
 import { useStore } from "@/lib/store";
+import type { ClickEvent } from "@/lib/types";
 
 type Phase = "setup" | "countdown" | "recording" | "paused" | "review";
 
@@ -29,15 +33,19 @@ function formatTime(s: number): string {
 
 export function Recorder() {
   const router = useRouter();
-  const { createProject } = useStore();
+  const searchParams = useSearchParams();
+  const returnCtx = parseRecordReturnParams(searchParams);
+  const { createProject, attachFootage } = useStore();
   const [phase, setPhase] = useState<Phase>("setup");
   const [withCamera, setWithCamera] = useState(true);
-  const [withMic, setWithMic] = useState(true);
+  const [withMic, setWithMic] = useState(false);
   const [count, setCount] = useState(3);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [fileExt, setFileExt] = useState("webm");
+  const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
+  const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState("");
 
   // Live preview targets
@@ -52,6 +60,8 @@ export function Recorder() {
   const rafRef = useRef<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunks = useRef<BlobPart[]>([]);
+  const clicksRef = useRef<ClickEvent[]>([]);
+  const recordStartMs = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const cleanupStreams = useCallback(() => {
@@ -101,6 +111,19 @@ export function Recorder() {
       void previewRef.current.play();
     }
 
+    const onCanvasClick = (e: MouseEvent) => {
+      if (!canvasRef.current) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = (e.clientY - rect.top) / rect.height;
+      clicksRef.current.push({
+        tMs: Date.now() - recordStartMs.current,
+        x: Math.max(0, Math.min(1, x)),
+        y: Math.max(0, Math.min(1, y)),
+      });
+    };
+    canvas.addEventListener("pointerdown", onCanvasClick);
+
     const draw = () => {
       ctx.drawImage(screenVideo, 0, 0, canvas.width, canvas.height);
       if (camVideo) {
@@ -141,13 +164,17 @@ export function Recorder() {
       if (e.data.size > 0) chunks.current.push(e.data);
     };
     recorder.onstop = () => {
+      canvas.removeEventListener("pointerdown", onCanvasClick);
       const blob = new Blob(chunks.current, { type: mimeType ?? "video/webm" });
       const url = URL.createObjectURL(blob);
+      setVideoBlob(blob);
       setVideoUrl(url);
       setPhase("review");
       cleanupStreams();
     };
     recorderRef.current = recorder;
+    clicksRef.current = [];
+    recordStartMs.current = Date.now();
     recorder.start();
 
     // Stop if the user ends screen share from the browser chrome.
@@ -221,9 +248,43 @@ export function Recorder() {
   const reset = useCallback(() => {
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setVideoUrl(null);
+    setVideoBlob(null);
     setElapsed(0);
     setPhase("setup");
   }, [videoUrl]);
+
+  const turnIntoLaunchKit = useCallback(async () => {
+    if (!videoBlob) return;
+    setSaving(true);
+    try {
+      const p = createProject({
+        fromRecording: true,
+        url: returnCtx.url || undefined,
+        description: notes.trim() || returnCtx.description || undefined,
+        prdText: returnCtx.prdText || undefined,
+      });
+      const key = footageKey(p.id);
+      await saveBlob(key, p.id, videoBlob, "footage");
+      attachFootage(p.id, {
+        projectId: p.id,
+        kind: "recording",
+        durationSec: elapsed,
+        hasAudio: withMic,
+        clickCount: clicksRef.current.length,
+        blobKey: key,
+        clicks: [...clicksRef.current],
+      });
+      if (returnCtx.returnTo === "/new") {
+        router.push(`/new?project=${p.id}`);
+        return;
+      }
+      router.push(`/projects/${p.id}/audit`);
+    } catch (err) {
+      setError(storageErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }, [videoBlob, createProject, attachFootage, notes, elapsed, withMic, router, returnCtx]);
 
   /* --------------------------------------------------------------- Review */
   if (phase === "review" && videoUrl) {
@@ -264,12 +325,10 @@ export function Recorder() {
           <div className="mt-4 flex flex-col gap-2">
             <Button
               className="w-full"
-              onClick={() => {
-                const p = createProject({ fromRecording: true });
-                router.push(`/projects/${p.id}/audit`);
-              }}
+              disabled={saving}
+              onClick={() => void turnIntoLaunchKit()}
             >
-              A full launch kit
+              {saving ? "Saving…" : "A full launch kit"}
             </Button>
             <ButtonLink href="/new" variant="secondary" className="w-full">
               A product presentation
@@ -337,7 +396,7 @@ export function Recorder() {
           <Card className="flex-1 p-5">
             <p className="text-sm font-medium text-ink">Teleprompter</p>
             <p className="mt-1 text-xs text-ink-mute">
-              Narrate while recording for a sharper script.
+              Optional — narrate for a sharper script. Silent recordings work great with AI voiceover.
             </p>
             <textarea
               value={notes}

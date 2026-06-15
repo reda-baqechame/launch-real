@@ -1,0 +1,18 @@
+---
+description: LaunchReel autonomous build loop — read on AGENT_LOOP_WAKE_BUILD or when user asks to continue building
+globs:
+alwaysApply: false
+---
+
+# Build loop operator
+
+When continuing the LaunchReel build OR when shell output contains `AGENT_LOOP_WAKE_BUILD`:
+
+1. Read `BUILD_BACKLOG.md` (priorities) and `docs/BUILD_LOOP.md` (process).
+2. Run `npm run verify` if not already run this tick.
+3. If verify fails → fix TypeScript/lint errors before new features.
+4. Implement **exactly one** unchecked P0 task; mark `[x]` when done.
+5. Run `npm run verify` again before finishing.
+6. Never start P2 (auth/Stripe/cloud) unless the user explicitly requests it.
+
+Prefer minimal diffs. Match existing patterns in `src/lib/` and `src/components/`.

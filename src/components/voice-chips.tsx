@@ -3,27 +3,47 @@
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 
-/**
- * Inert voice/tone toggles. They reflect the vision's "anti-slop" controls
- * ("More founder-like", "Less hype"…). Selection is visual-only for this
- * milestone — later they re-run the copy/voice engine.
- */
-export function VoiceChips({ options }: { options: string[] }) {
-  const [active, setActive] = useState<string | null>(null);
+export function VoiceChips({
+  options,
+  active: controlledActive,
+  onSelect,
+  disabled,
+  busy,
+}: {
+  options: string[];
+  active?: string | null;
+  onSelect?: (label: string) => void;
+  disabled?: boolean;
+  busy?: boolean;
+}) {
+  const [internalActive, setInternalActive] = useState<string | null>(null);
+  const active = controlledActive !== undefined ? controlledActive : internalActive;
+
+  function handleClick(opt: string) {
+    if (disabled || busy) return;
+    if (onSelect) {
+      onSelect(opt);
+      return;
+    }
+    setInternalActive((a) => (a === opt ? null : opt));
+  }
+
   return (
     <div className="flex flex-wrap gap-2">
       {options.map((opt) => (
         <button
           key={opt}
-          onClick={() => setActive((a) => (a === opt ? null : opt))}
+          type="button"
+          disabled={disabled || busy}
+          onClick={() => handleClick(opt)}
           className={cn(
-            "rounded-full border px-3 py-1.5 text-xs transition-colors",
+            "rounded-full border px-3 py-1.5 text-xs transition-colors disabled:opacity-50",
             active === opt
               ? "border-accent/50 bg-accent/15 text-accent-ink"
               : "border-line bg-surface-2 text-ink-soft hover:border-line-strong hover:text-ink",
           )}
         >
-          {opt}
+          {busy && active === opt ? "Rewriting…" : opt}
         </button>
       ))}
     </div>

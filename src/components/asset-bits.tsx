@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/cn";
+import { downloadDataUrl, isImageDataUrl } from "@/lib/download-utils";
+import { fetchRewrite, getKey, type RewriteMode } from "@/lib/ai";
 import type { LaunchAsset } from "@/lib/types";
 
 export function CopyButton({ text, className }: { text: string; className?: string }) {
@@ -39,46 +41,110 @@ export function AssetAction({ children }: { children: React.ReactNode }) {
 
 /** Media-style asset (videos, PH images) — title + meta + actions. */
 export function MediaAsset({ asset }: { asset: LaunchAsset }) {
+  const image = isImageDataUrl(asset.body);
+
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4">
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-ink-mute">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        </span>
-        <div className="min-w-0">
-          <p className="truncate font-medium text-ink">{asset.title}</p>
-          {asset.meta && <p className="truncate text-xs text-ink-mute">{asset.meta}</p>}
+    <div className="rounded-xl border border-line bg-surface p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          {image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={asset.body}
+              alt=""
+              className="size-16 shrink-0 rounded-lg border border-line object-cover"
+            />
+          ) : (
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-ink-mute">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="truncate font-medium text-ink">{asset.title}</p>
+            {asset.meta && <p className="truncate text-xs text-ink-mute">{asset.meta}</p>}
+          </div>
         </div>
-      </div>
-      <div className="flex shrink-0 gap-1.5">
-        <AssetAction>Preview</AssetAction>
-        <AssetAction>Download</AssetAction>
-        <AssetAction>Regenerate</AssetAction>
+        <div className="flex shrink-0 gap-1.5">
+          {image && asset.body && (
+            <button
+              onClick={() => downloadDataUrl(asset.body!, `${asset.id}.png`)}
+              className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
+            >
+              Download
+            </button>
+          )}
+          {!image && <AssetAction>Download</AssetAction>}
+        </div>
       </div>
     </div>
   );
 }
 
 /** Text/copy asset — shows body with a working Copy button. */
-export function CopyAsset({ asset }: { asset: LaunchAsset }) {
+export function CopyAsset({
+  asset,
+  onUpdate,
+}: {
+  asset: LaunchAsset;
+  onUpdate?: (text: string) => void;
+}) {
+  const [body, setBody] = useState(asset.body ?? "");
+  const [busy, setBusy] = useState(false);
+
+  async function rewrite(mode: RewriteMode) {
+    if (!body || !getKey()) return;
+    setBusy(true);
+    try {
+      const text = await fetchRewrite(body, mode);
+      setBody(text);
+      onUpdate?.(text);
+    } catch {
+      /* optional */
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="rounded-xl border border-line bg-surface p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="font-medium text-ink">{asset.title}</p>
         {asset.meta && <span className="text-xs text-ink-mute">{asset.meta}</span>}
       </div>
-      {asset.body && (
+      {body && (
         <pre className="mt-3 whitespace-pre-wrap rounded-lg border border-line bg-base p-3 font-sans text-sm leading-relaxed text-ink-soft">
-          {asset.body}
+          {body}
         </pre>
       )}
       <div className="mt-3 flex flex-wrap gap-1.5">
-        {asset.body && <CopyButton text={asset.body} />}
-        <AssetAction>Rewrite</AssetAction>
-        <AssetAction>More founder-like</AssetAction>
-        <AssetAction>Less hype</AssetAction>
+        {body && <CopyButton text={body} />}
+        {body && getKey() && (
+          <>
+            <button
+              disabled={busy}
+              onClick={() => void rewrite("punchy")}
+              className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft hover:border-line-strong hover:text-ink disabled:opacity-50"
+            >
+              Rewrite
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => void rewrite("founder")}
+              className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft hover:border-line-strong hover:text-ink disabled:opacity-50"
+            >
+              More founder-like
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => void rewrite("less-hype")}
+              className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft hover:border-line-strong hover:text-ink disabled:opacity-50"
+            >
+              Less hype
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

@@ -1,12 +1,41 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useState } from "react";
 import { ButtonLink, Card, ScoreRing, StatusBadge } from "@/components/ui";
+import { deleteProjectFootage } from "@/lib/footage-store";
 import { CREDITS } from "@/lib/mock-data";
-import { useStore } from "@/lib/store";
+import { isSeededProject, useStore } from "@/lib/store";
+import { storageErrorMessage } from "@/lib/storage-errors";
 
 export default function DashboardPage() {
-  const { projects } = useStore();
+  const { projects, deleteProject } = useStore();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDelete = useCallback(
+    async (projectId: string) => {
+      if (isSeededProject(projectId)) return;
+      if (
+        !confirm(
+          "Delete this launch and all locally saved media? This cannot be undone.",
+        )
+      ) {
+        return;
+      }
+      setDeleteError(null);
+      setDeletingId(projectId);
+      try {
+        await deleteProjectFootage(projectId);
+        deleteProject(projectId);
+      } catch (e) {
+        setDeleteError(storageErrorMessage(e));
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [deleteProject],
+  );
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -22,40 +51,56 @@ export default function DashboardPage() {
         </ButtonLink>
       </div>
 
+      {deleteError && (
+        <p className="mt-4 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-sm text-warn">
+          {deleteError}
+        </p>
+      )}
+
       {projects.length === 0 ? (
         <EmptyState />
       ) : (
         <Card className="mt-8 overflow-hidden">
-          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-line px-5 py-3 text-xs uppercase tracking-wider text-ink-mute sm:grid-cols-[1fr_120px_140px]">
+          <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-line px-5 py-3 text-xs uppercase tracking-wider text-ink-mute sm:grid-cols-[1fr_120px_140px_40px]">
             <span>Project</span>
             <span className="text-right sm:text-left">Score</span>
             <span className="text-right">Status</span>
+            <span className="sr-only">Actions</span>
           </div>
           <ul>
             {projects.map((p) => (
               <li key={p.id}>
-                <Link
-                  href={`/projects/${p.id}/result`}
-                  className="grid grid-cols-[1fr_auto_auto] items-center gap-4 px-5 py-4 transition-colors hover:bg-surface-2 sm:grid-cols-[1fr_120px_140px]"
-                >
-                  <div className="min-w-0">
+                <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 px-5 py-4 transition-colors hover:bg-surface-2 sm:grid-cols-[1fr_120px_140px_40px]">
+                  <Link href={`/projects/${p.id}/result`} className="min-w-0">
                     <p className="truncate font-medium text-ink">{p.name}</p>
                     <p className="truncate text-sm text-ink-mute">{p.oneLiner}</p>
-                  </div>
+                  </Link>
                   <span className="text-right font-mono text-lg tabular-nums text-ink sm:text-left">
                     {p.score}
                   </span>
                   <span className="flex justify-end">
                     <StatusBadge status={p.status} />
                   </span>
-                </Link>
+                  <span className="flex justify-end">
+                    {!isSeededProject(p.id) && (
+                      <button
+                        type="button"
+                        disabled={deletingId === p.id}
+                        onClick={() => void handleDelete(p.id)}
+                        className="rounded-md border border-line px-2 py-1 text-xs text-ink-mute transition-colors hover:border-warn/40 hover:text-warn disabled:opacity-50"
+                        aria-label={`Delete ${p.name}`}
+                      >
+                        {deletingId === p.id ? "…" : "Delete"}
+                      </button>
+                    )}
+                  </span>
+                </div>
               </li>
             ))}
           </ul>
         </Card>
       )}
 
-      {/* Quick-create modes — the vision's multi-job entry points */}
       <h2 className="mt-12 text-sm font-medium uppercase tracking-wider text-ink-mute">
         What do you want to create?
       </h2>

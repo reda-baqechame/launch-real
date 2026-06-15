@@ -4,6 +4,85 @@
 
 export type ProjectStatus = "Live" | "Ready" | "Needs review" | "Draft";
 
+export interface ClickEvent {
+  tMs: number;
+  x: number;
+  y: number;
+}
+
+export interface FootageMeta {
+  projectId: string;
+  kind: "recording" | "agent" | "screenshots";
+  durationSec?: number;
+  hasAudio: boolean;
+  clickCount: number;
+  blobKey: string;
+  clicks?: ClickEvent[];
+  screenshotKeys?: string[];
+}
+
+export interface AbPreview {
+  variant: number;
+  blobKey: string;
+  hook: string;
+}
+
+export interface VideoScript {
+  hook: string;
+  cta: string;
+  lines: { text: string; startSec: number; endSec: number }[];
+  shotList?: ShotListItem[];
+}
+
+export interface ShotListItem {
+  momentId: string;
+  durationSec: number;
+  zoomTarget?: { x: number; y: number; scale: number };
+}
+
+export interface RenderOutput {
+  aspect: "16:9" | "9:16" | "1:1";
+  blobKey: string;
+  createdAt: string;
+}
+
+export interface GeneratedCaptions {
+  x: string;
+  linkedin: string;
+  phFirstComment: string;
+  socialClips?: { id: string; caption: string }[];
+}
+
+export interface JudgeScores {
+  hook: number;
+  clarity: number;
+  pacing: number;
+  artifacts: number;
+  total: number;
+  pass: boolean;
+  notes: string[];
+  winner?: number;
+  winningHook?: string;
+}
+
+export interface InteractiveDemoStep {
+  id: string;
+  imageKey: string;
+  hotspot: { x: number; y: number };
+  tooltip: string;
+}
+
+export interface InteractiveDemo {
+  steps: InteractiveDemoStep[];
+  cta: string;
+}
+
+export interface CloudBlobRef {
+  objectKey: string;
+  url: string;
+  uploadedAt: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -20,6 +99,16 @@ export interface Project {
   moments: DemoMoment[];
   assets: LaunchKit;
   analytics: Analytics;
+  footage?: FootageMeta;
+  renders?: RenderOutput[];
+  script?: VideoScript;
+  judge?: JudgeScores;
+  abPreviews?: AbPreview[];
+  captions?: GeneratedCaptions;
+  interactiveDemo?: InteractiveDemo;
+  outputMode?: "marketing" | "explainer" | "tutorial";
+  language?: string;
+  cloudBlobs?: Record<string, CloudBlobRef>;
 }
 
 export interface ScoreBreakdown {
@@ -75,6 +164,10 @@ export interface DemoMoment {
   role: StoryRole;
   why: string;
   keepByDefault: boolean;
+  startSec?: number;
+  endSec?: number;
+  wowScore?: number;
+  thumbDataUrl?: string;
 }
 
 export interface LaunchAsset {
@@ -82,6 +175,7 @@ export interface LaunchAsset {
   title: string;
   meta?: string; // e.g. "Best for: X / LinkedIn" or a format label
   body?: string; // copy assets carry their text here
+  blobKey?: string; // IndexedDB key for rendered video/image bytes
 }
 
 export interface LaunchKit {

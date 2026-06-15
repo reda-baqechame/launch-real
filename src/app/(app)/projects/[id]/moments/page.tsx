@@ -23,7 +23,7 @@ export default function MomentsPage() {
         </p>
       </div>
 
-      <MomentReview projectId={project.id} moments={project.moments} />
+      <MomentReview project={project} />
     </div>
   );
 }

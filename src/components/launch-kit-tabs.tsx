@@ -1,12 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { Pill, ScoreBar, VideoSurface } from "@/components/ui";
-import { CopyAsset, MediaAsset, AssetAction } from "@/components/asset-bits";
+import { CopyAsset, CopyButton } from "@/components/asset-bits";
+import { ProductHuntAsset } from "@/components/ph-asset";
 import { VoiceChips } from "@/components/voice-chips";
-import { LOCALES, VOICE_CHIPS } from "@/lib/mock-data";
-import type { Project } from "@/lib/types";
+import { ProductVideoStudio } from "@/components/product-video";
+import { VOICE_CHIPS } from "@/lib/mock-data";
+import { useFootageUrl } from "@/lib/use-footage-url";
+import { useStore } from "@/lib/store";
+import { getBlobUrl, renderKey, saveRender } from "@/lib/footage-store";
+import { buildScriptFromMoments } from "@/lib/script-build";
+import { useProjectRenders } from "@/lib/use-project-renders";
+import { useSocialClips } from "@/lib/use-social-clips";
+import { downloadBlob } from "@/lib/download-utils";
+import { analyticsWithViews } from "@/lib/analytics-store";
+import { loadScreenshotUrls } from "@/lib/screenshot-loader";
+import { LocalizeTab } from "@/components/localize-tab";
+import { fetchRewrite, getKey } from "@/lib/ai";
+import { voiceChipToMode } from "@/lib/voice-chip-map";
+import type { LaunchAsset, Project, VideoScript } from "@/lib/types";
 
 const TABS = [
   "Video",
@@ -20,9 +35,106 @@ const TABS = [
 ] as const;
 type Tab = (typeof TABS)[number];
 
+function copyItems(project: Project): LaunchAsset[] {
+  if (project.captions) {
+    return [
+      { id: "x", title: "X post", body: project.captions.x },
+      { id: "li", title: "LinkedIn post", body: project.captions.linkedin },
+      { id: "ph", title: "PH first comment", body: project.captions.phFirstComment },
+    ];
+  }
+  return project.assets.copy;
+}
+
+function CopyTab({ project }: { project: Project }) {
+  const { attachAssets, attachCaptions } = useStore();
+  const [activeVoice, setActiveVoice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const hasKey = Boolean(getKey());
+  const items = copyItems(project);
+
+  function persistCopy(next: LaunchAsset[]) {
+    if (project.captions) {
+      const byId = Object.fromEntries(next.map((c) => [c.id, c.body ?? ""]));
+      attachCaptions(project.id, {
+        ...project.captions,
+        x: byId.x ?? project.captions.x,
+        linkedin: byId.li ?? project.captions.linkedin,
+        phFirstComment: byId.ph ?? project.captions.phFirstComment,
+      });
+    }
+    attachAssets(project.id, { copy: next });
+  }
+
+  async function applyVoice(chip: string) {
+    if (!hasKey) {
+      setError("Connect an Anthropic key on /new to rewrite copy.");
+      return;
+    }
+    const withBody = items.filter((a) => a.body?.trim());
+    if (!withBody.length) {
+      setError("No copy to rewrite yet — generate your launch kit first.");
+      return;
+    }
+
+    setActiveVoice(chip);
+    setBusy(true);
+    setError(null);
+    const mode = voiceChipToMode(chip);
+
+    try {
+      const rewritten = await Promise.all(
+        items.map(async (item) => {
+          if (!item.body?.trim()) return item;
+          const text = await fetchRewrite(item.body, mode);
+          return { ...item, body: text };
+        }),
+      );
+      persistCopy(rewritten);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Rewrite failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section title="Launch copy" hint="Founder-style, not AI slop. Nudge the voice below.">
+      <div className="mb-4">
+        <VoiceChips
+          options={VOICE_CHIPS}
+          active={activeVoice}
+          onSelect={(chip) => void applyVoice(chip)}
+          disabled={!hasKey || !items.some((a) => a.body?.trim())}
+          busy={busy}
+        />
+        {!hasKey && (
+          <p className="mt-2 text-xs text-ink-mute">
+            Connect Claude on <Link href="/new" className="text-accent-ink hover:text-accent-soft">/new</Link> to use voice chips.
+          </p>
+        )}
+        {error && <p className="mt-2 text-xs text-bad">{error}</p>}
+      </div>
+      <div className="grid gap-2">
+        {items.map((a) => (
+          <CopyAsset
+            key={`${a.id}:${a.body ?? ""}`}
+            asset={a}
+            onUpdate={(text) => {
+              persistCopy(items.map((c) => (c.id === a.id ? { ...c, body: text } : c)));
+            }}
+          />
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 export function LaunchKitTabs({ project }: { project: Project }) {
   const [tab, setTab] = useState<Tab>("Video");
-  const { assets, analytics } = project;
+  const assets = project.assets;
+  const analytics = analyticsWithViews(project);
 
   return (
     <div className="mt-8">
@@ -52,46 +164,16 @@ export function LaunchKitTabs({ project }: { project: Project }) {
         {tab === "Product Hunt" && (
           <Section title="Product Hunt kit" hint="Gallery, poster, screenshots, and copy — ordered for clarity.">
             <div className="grid gap-2 sm:grid-cols-2">
-              {assets.productHunt.map((a) =>
-                a.body ? <CopyAsset key={a.id} asset={a} /> : <MediaAsset key={a.id} asset={a} />,
-              )}
-            </div>
-          </Section>
-        )}
-
-        {tab === "Social Clips" && (
-          <Section title="3 short clips from your strongest moments" hint="Each clip works muted and starts with the payoff.">
-            <div className="grid gap-3 sm:grid-cols-3">
-              {["Problem hook", "Product magic", "CTA"].map((label, i) => (
-                <div key={label} className="rounded-xl border border-line bg-surface p-3">
-                  <VideoSurface label={`Clip ${i + 1} — ${label}`} ratio="9 / 16" />
-                  <p className="mt-3 text-sm font-medium text-ink">Clip {i + 1} — {label}</p>
-                  <p className="text-xs text-ink-mute">
-                    Best for: {["X / LinkedIn", "TikTok / Reels", "Follow-up post"][i]}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    <AssetAction>Download</AssetAction>
-                    <AssetAction>Rewrite caption</AssetAction>
-                    <AssetAction>Regenerate</AssetAction>
-                  </div>
-                </div>
+              {assets.productHunt.map((a) => (
+                <ProductHuntAsset key={a.id} asset={a} />
               ))}
             </div>
           </Section>
         )}
 
-        {tab === "Copy" && (
-          <Section title="Launch copy" hint="Founder-style, not AI slop. Nudge the voice below.">
-            <div className="mb-4">
-              <VoiceChips options={VOICE_CHIPS} />
-            </div>
-            <div className="grid gap-2">
-              {assets.copy.map((a) => (
-                <CopyAsset key={a.id} asset={a} />
-              ))}
-            </div>
-          </Section>
-        )}
+        {tab === "Social Clips" && <SocialClipsTab assets={assets.social} />}
+
+        {tab === "Copy" && <CopyTab project={project} />}
 
         {tab === "Landing Page" && (
           <Section title="Landing page kit" hint="Many founders have unclear landing pages. Here's a sharper one.">
@@ -141,9 +223,80 @@ export function LaunchKitTabs({ project }: { project: Project }) {
           </Section>
         )}
 
-        {tab === "Localize" && <LocalizeTab />}
+        {tab === "Localize" && <LocalizeTab project={project} />}
       </div>
     </div>
+  );
+}
+
+function SocialClipsTab({ assets }: { assets: LaunchAsset[] }) {
+  const { clips, loading } = useSocialClips(assets);
+  const placeholders = ["Problem hook", "Product magic", "CTA"];
+  const platforms = ["X / LinkedIn", "TikTok / Reels", "Follow-up post"];
+
+  return (
+    <Section
+      title="3 short clips from your strongest moments"
+      hint="Each clip works muted — hook card, moment cut, CTA end card."
+    >
+      {loading && (
+        <p className="text-sm text-ink-mute">Loading social clips…</p>
+      )}
+      <div className="grid gap-3 sm:grid-cols-3">
+        {(clips.length ? clips : placeholders.map((label, i) => ({
+          asset: { id: `ph-${i}`, title: label, meta: platforms[i] } as LaunchAsset,
+          url: "",
+        }))).map(({ asset, url }, i) => (
+          <div key={asset.id} className="rounded-xl border border-line bg-surface p-3">
+            {url ? (
+              <video
+                src={url}
+                controls
+                playsInline
+                muted
+                className="mx-auto aspect-[9/16] max-h-72 w-full rounded-lg border border-line bg-black object-contain"
+              />
+            ) : (
+              <VideoSurface label={asset.title} ratio="9 / 16" />
+            )}
+            <p className="mt-3 text-sm font-medium text-ink">{asset.title}</p>
+            <p className="text-xs text-ink-mute">
+              Best for: {asset.meta ?? platforms[i]}
+            </p>
+            {asset.body && !asset.blobKey && (
+              <p className="mt-2 text-xs text-ink-soft line-clamp-3">{asset.body}</p>
+            )}
+            {asset.body && asset.blobKey && (
+              <pre className="mt-2 whitespace-pre-wrap rounded-lg border border-line bg-base p-2 text-xs text-ink-soft">
+                {asset.body}
+              </pre>
+            )}
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {asset.body && <CopyButton text={asset.body} />}
+              {url && (
+                <button
+                  onClick={() => {
+                    void fetch(url)
+                      .then((r) => r.blob())
+                      .then((blob) =>
+                        downloadBlob(blob, `launchreel-${asset.id}.webm`),
+                      );
+                  }}
+                  className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft hover:border-line-strong hover:text-ink"
+                >
+                  Download
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      {!loading && clips.length === 0 && (
+        <p className="mt-4 text-sm text-ink-mute">
+          Generate your launch kit from the Moments step to render social clips.
+        </p>
+      )}
+    </Section>
   );
 }
 
@@ -165,55 +318,199 @@ function Section({
   );
 }
 
+function defaultScript(project: Project): VideoScript {
+  if (project.script?.shotList?.length) return project.script;
+  if (project.script) {
+    const kept = project.moments.filter((m) => m.keepByDefault);
+    return { ...project.script, shotList: kept.map((m) => ({
+      momentId: m.id,
+      durationSec: Math.max(2.5, (m.endSec ?? (m.startSec ?? 0) + 4) - (m.startSec ?? 0)),
+    })) };
+  }
+  const kept = project.moments.filter((m) => m.keepByDefault).slice(0, 5);
+  return buildScriptFromMoments(kept.length ? kept : project.moments.slice(0, 3), project.mainHook);
+}
+
 function VideoTab({ project }: { project: Project }) {
+  const { attachRenders } = useStore();
+  const { url: footageUrl, loading } = useFootageUrl(project.footage);
+  const { items: renderItems, loading: rendersLoading } = useProjectRenders(project.renders);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [abUrls, setAbUrls] = useState<{ variant: number; hook: string; url: string }[]>([]);
+  const script = defaultScript(project);
+  const judge = project.judge;
+  const hero =
+    renderItems.find((r) => r.aspect === "16:9") ?? renderItems[0];
+
+  useEffect(() => {
+    if (!project.footage?.screenshotKeys?.length) return;
+    void loadScreenshotUrls(project.footage.screenshotKeys).then(setImageUrls);
+  }, [project.footage?.screenshotKeys]);
+
+  useEffect(() => {
+    if (!project.abPreviews?.length) return;
+    let cancelled = false;
+    const urls: string[] = [];
+    void Promise.all(
+      project.abPreviews.map(async (p) => {
+        const url = await getBlobUrl(p.blobKey, "render");
+        return url ? { variant: p.variant, hook: p.hook, url } : null;
+      }),
+    ).then((items) => {
+      if (cancelled) {
+        items.forEach((i) => i && URL.revokeObjectURL(i.url));
+        return;
+      }
+      const valid = items.filter(Boolean) as { variant: number; hook: string; url: string }[];
+      urls.push(...valid.map((v) => v.url));
+      setAbUrls(valid);
+    });
+    return () => {
+      cancelled = true;
+      urls.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [project.abPreviews]);
+
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
       <div>
-        <VideoSurface label="Hero launch video" />
+        {abUrls.length > 0 && (
+          <div className="mb-6 rounded-xl border border-line bg-surface p-4">
+            <p className="text-sm font-medium text-ink">A/B hook previews</p>
+            <p className="mt-1 text-xs text-ink-mute">
+              Variant {judge?.winner ?? 1} won the quality judge and was used for the full render.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {abUrls.map((p) => (
+                <div key={p.variant} className="rounded-lg border border-line bg-base p-2">
+                  <p className="text-xs font-medium text-ink">
+                    Variant {p.variant}
+                    {judge?.winner === p.variant ? " · winner" : ""}
+                  </p>
+                  <p className="mt-0.5 text-xs text-ink-mute line-clamp-2">&ldquo;{p.hook}&rdquo;</p>
+                  <video src={p.url} controls muted className="mt-2 aspect-video w-full rounded border border-line bg-black" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {hero && !rendersLoading && (
+          <div className="mb-6 rounded-xl border border-line bg-surface p-4">
+            <p className="text-sm font-medium text-ink">Your launch video</p>
+            <video
+              src={hero.url}
+              controls
+              className="mt-3 aspect-video w-full rounded-lg border border-line bg-black"
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              {renderItems.map((r) => (
+                <button
+                  key={r.blobKey}
+                  onClick={() => {
+                    void fetch(r.url)
+                      .then((res) => res.blob())
+                      .then((blob) =>
+                        downloadBlob(blob, `launchreel-${r.aspect.replace(":", "x")}.webm`),
+                      );
+                  }}
+                  className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft hover:border-line-strong hover:text-ink"
+                >
+                  Download {r.aspect}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {loading && (
+          <div className="flex aspect-video items-center justify-center rounded-xl border border-line bg-surface">
+            <span className="text-sm text-ink-mute">Loading footage…</span>
+          </div>
+        )}
+        {!loading && footageUrl ? (
+          <>
+            <p className="mb-3 text-sm font-medium text-ink">
+              {hero ? "Re-render or try a preview cut" : "Render your video"}
+            </p>
+            <ProductVideoStudio
+            footageUrl={footageUrl}
+            clicks={project.footage?.clicks}
+            script={script}
+            moments={project.moments}
+            imageUrls={imageUrls.length ? imageUrls : undefined}
+            watermark
+            onComplete={(results) => {
+              void (async () => {
+                const renders = await Promise.all(
+                  results.map(async (r) => {
+                    const key = renderKey(project.id, r.aspect);
+                    await saveRender(project.id, r.aspect, r.blob);
+                    return { aspect: r.aspect, blobKey: key, createdAt: new Date().toISOString() };
+                  }),
+                );
+                attachRenders(project.id, renders);
+              })();
+            }}
+          />
+          </>
+        ) : !loading ? (
+          <>
+            <VideoSurface label="Hero launch video" />
+            <p className="mt-4 text-sm text-ink-mute">
+              No footage yet.{" "}
+              <Link href="/record" className="text-accent-ink hover:text-accent-soft">
+                Record a demo
+              </Link>{" "}
+              or paste a URL on{" "}
+              <Link href="/new" className="text-accent-ink hover:text-accent-soft">
+                /new
+              </Link>
+              .
+            </p>
+          </>
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           <Pill>16:9 · Product Hunt / YouTube</Pill>
           <Pill>9:16 · TikTok / Reels</Pill>
           <Pill>1:1 · LinkedIn / X</Pill>
         </div>
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {["Download MP4", "Upload to YouTube unlisted", "Copy share link", "Regenerate scene", "Remove watermark", "Create French version", "Create Arabic version"].map((a) => (
-            <AssetAction key={a}>{a}</AssetAction>
-          ))}
-        </div>
         <p className="mt-4 text-xs text-ink-mute">
           Free videos include a LaunchReel end card. Upgrade to remove it.
         </p>
-        <div className="mt-6 grid gap-2 sm:grid-cols-2">
-          {project.assets.videos.map((v) => (
-            <MediaAsset key={v.id} asset={v} />
-          ))}
-        </div>
       </div>
 
-      {/* Quality judge — the anti-slop engine */}
       <aside className="rounded-2xl border border-line bg-surface p-5">
         <p className="text-sm font-medium text-ink">Quality judge</p>
         <p className="mt-1 text-xs text-ink-mute">
-          Every video is scored before you see it. Failing scenes regenerate
-          automatically.
+          Every video is scored before you see it.
         </p>
         <div className="mt-4 space-y-2.5">
-          <ScoreBar label="Hook clarity" value={88} />
-          <ScoreBar label="Visual legibility" value={94} />
-          <ScoreBar label="Caption read" value={96} />
-          <ScoreBar label="Story flow" value={86} />
-          <ScoreBar label="CTA strength" value={80} />
-          <ScoreBar label="Pacing" value={84} />
+          <ScoreBar label="Hook clarity" value={judge?.hook ?? 88} />
+          <ScoreBar label="Visual legibility" value={judge?.clarity ?? 94} />
+          <ScoreBar label="Caption read" value={judge?.artifacts ?? 96} />
+          <ScoreBar label="Story flow" value={judge?.pacing ?? 86} />
+          <ScoreBar label="CTA strength" value={judge?.total ?? 80} />
         </div>
         <div className="mt-4 flex items-center justify-between rounded-lg border border-good/20 bg-good/[0.06] px-3 py-2">
           <span className="text-xs text-ink-mute">Slop risk</span>
-          <span className="font-mono text-sm text-good">9 · pass</span>
+          <span className={cn("font-mono text-sm", judge?.pass === false ? "text-warn" : "text-good")}>
+            {judge ? `${judge.total} · ${judge.pass ? "pass" : "review"}` : "9 · pass"}
+          </span>
         </div>
-        <ul className="mt-4 space-y-1.5 text-xs text-ink-mute">
-          <li>• The hook is clear within 3 seconds.</li>
-          <li>• The CTA could be more specific.</li>
-          <li>• The second clip is slightly slow.</li>
-        </ul>
+        {judge?.winningHook && (
+          <p className="mt-3 text-xs text-ink-mute">
+            Winning hook (variant {judge.winner ?? 1}):{" "}
+            <span className="text-ink-soft">&ldquo;{judge.winningHook}&rdquo;</span>
+          </p>
+        )}
+        {judge?.notes && (
+          <ul className="mt-4 space-y-1.5 text-xs text-ink-mute">
+            {judge.notes.map((n) => (
+              <li key={n}>• {n}</li>
+            ))}
+          </ul>
+        )}
       </aside>
     </div>
   );
@@ -229,9 +526,7 @@ function SharePageTab({ project }: { project: Project }) {
           <p className="text-sm text-ink-mute">{project.oneLiner}</p>
         </div>
         <div className="flex flex-col gap-2">
-          <AssetAction>Copy share link</AssetAction>
-          <AssetAction>Edit CTA</AssetAction>
-          <AssetAction>Add logo</AssetAction>
+          <CopyButton text={`${typeof window !== "undefined" ? window.location.origin : ""}/share/${project.id}`} />
           <a
             href={`/share/${project.id}`}
             target="_blank"
@@ -241,29 +536,6 @@ function SharePageTab({ project }: { project: Project }) {
             Open public page ↗
           </a>
         </div>
-      </div>
-    </Section>
-  );
-}
-
-function LocalizeTab() {
-  const styles = ["Native founder voice", "Formal business", "Punchy social", "Investor-ready"];
-  return (
-    <Section title="Create a localized launch kit" hint="Not literal translation. The angle, idioms, and CTA adapt to the market.">
-      <div className="flex flex-wrap gap-2">
-        {LOCALES.map((l) => (
-          <button
-            key={l.code}
-            className="rounded-lg border border-line bg-surface px-4 py-2 text-sm text-ink-soft transition-colors hover:border-line-strong hover:text-ink"
-          >
-            {l.label}
-            {l.rtl && <span className="ml-1.5 text-xs text-ink-mute">RTL</span>}
-          </button>
-        ))}
-      </div>
-      <p className="mt-5 text-xs uppercase tracking-wider text-ink-mute">Localization style</p>
-      <div className="mt-2">
-        <VoiceChips options={styles} />
       </div>
     </Section>
   );

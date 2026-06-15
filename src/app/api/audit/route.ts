@@ -1,5 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import {
+  handleAnthropicError,
+  isNextResponse,
+  jsonError,
+  parseJsonBody,
+  requireAnthropicKey,
+} from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 
@@ -73,17 +80,11 @@ function userPrompt(url?: string, description?: string, audience?: string): stri
 }
 
 export async function POST(req: Request) {
-  const key = req.headers.get("x-anthropic-key");
-  if (!key) {
-    return NextResponse.json({ error: "No Anthropic key provided." }, { status: 400 });
-  }
+  const key = requireAnthropicKey(req);
+  if (isNextResponse(key)) return key;
 
-  let body: { url?: string; description?: string; audience?: string };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
-  }
+  const body = await parseJsonBody<{ url?: string; description?: string; audience?: string }>(req);
+  if (isNextResponse(body)) return body;
 
   const client = new Anthropic({ apiKey: key });
 
@@ -101,16 +102,10 @@ export async function POST(req: Request) {
 
     const textBlock = message.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") {
-      return NextResponse.json({ error: "The model returned no audit." }, { status: 502 });
+      return jsonError("The model returned no audit.", 502);
     }
     return NextResponse.json(JSON.parse(textBlock.text));
   } catch (err) {
-    if (err instanceof Anthropic.APIError) {
-      return NextResponse.json(
-        { error: err.message || "The audit request was rejected." },
-        { status: err.status ?? 502 },
-      );
-    }
-    return NextResponse.json({ error: "Audit failed. Try again." }, { status: 500 });
+    return handleAnthropicError(err, "Audit failed. Try again.");
   }
 }

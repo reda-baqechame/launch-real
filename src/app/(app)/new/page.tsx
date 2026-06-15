@@ -1,12 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, Suspense } from "react";
 import { Button, Card, Eyebrow } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useStore } from "@/lib/store";
-import { clearKey, fetchAudit, setKey, useAnthropicKey } from "@/lib/ai";
-import type { AiAudit } from "@/lib/types";
+import { AgentCapturePanel } from "@/components/agent-capture";
+import { MediaIntake } from "@/components/media-intake";
+import { PhDraftIntake } from "@/components/ph-draft-intake";
+import { clearKey, clearTtsKey, fetchAudit, setKey, setTtsKey, useAnthropicKey, useTtsKey } from "@/lib/ai";
+import { saveRecordingFootage, saveScreenshotFootage } from "@/lib/footage-intake";
+import { buildRecordReturnUrl } from "@/lib/record-return";
+import type { PhDraftPrefill } from "@/lib/ph-intake";
+import { storageErrorMessage } from "@/lib/storage-errors";
+import type { AiAudit, Project } from "@/lib/types";
 
 const SOURCE_OPTIONS = [
   { id: "record", label: "Record screen", icon: "M15 10l4.5-2.6v9.2L15 14M3 7h12v10H3z" },
@@ -27,28 +35,121 @@ const ANALYZING_STEPS = [
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export default function NewProjectPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto flex min-h-[40vh] max-w-xl items-center justify-center text-sm text-ink-mute">
+          Loading…
+        </div>
+      }
+    >
+      <NewProjectPageWithResume />
+    </Suspense>
+  );
+}
+
+function NewProjectPageWithResume() {
+  const searchParams = useSearchParams();
+  const { hydrated, getProject } = useStore();
+  const resumeId = searchParams.get("project");
+  const resumeProject =
+    hydrated && resumeId ? (getProject(resumeId) ?? null) : null;
+  const remountKey = hydrated
+    ? resumeProject?.footage?.blobKey
+      ? `resumed:${resumeId}`
+      : "fresh"
+    : "hydrating";
+
+  return (
+    <NewProjectPageInner key={remountKey} resumeProject={resumeProject} />
+  );
+}
+
+function NewProjectPageInner({ resumeProject }: { resumeProject: Project | null }) {
   const router = useRouter();
-  const { createProject } = useStore();
+  const { createProject, attachFootage, patchProject, getProject } = useStore();
   const aiKey = useAnthropicKey();
-  const [url, setUrl] = useState("");
-  const [description, setDescription] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
+  const ttsKey = useTtsKey();
+  const [showAgent, setShowAgent] = useState(false);
+  const returnedProjectId = resumeProject?.footage?.blobKey ? resumeProject.id : null;
+  const recordSaved = Boolean(resumeProject?.footage?.blobKey);
+  const [url, setUrl] = useState(() =>
+    resumeProject?.url && resumeProject.url !== "https://example.com"
+      ? resumeProject.url
+      : "",
+  );
+  const [description, setDescription] = useState(
+    () => resumeProject?.oneLiner ?? "",
+  );
+  const [selected, setSelected] = useState<string[]>(() =>
+    resumeProject?.footage?.blobKey ? ["record"] : [],
+  );
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState(0);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [recordingFile, setRecordingFile] = useState<File | null>(null);
+  const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
+  const [prdText, setPrdText] = useState("");
+  const [phDraftUrl, setPhDraftUrl] = useState<string | null>(null);
+  const [savingFootage, setSavingFootage] = useState(false);
+  function handlePhPrefill(data: PhDraftPrefill) {
+    setPhDraftUrl(data.phUrl);
+    setUrl(data.productUrl);
+    const desc = [data.tagline ? `${data.name}: ${data.tagline}` : data.name]
+      .filter(Boolean)
+      .join("\n");
+    if (desc) setDescription(desc);
+  }
 
   function toggle(id: string) {
-    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+    setSelected((s) => {
+      const next = s.includes(id) ? s.filter((x) => x !== id) : [...s, id];
+      if (!next.includes("recording")) setRecordingFile(null);
+      if (!next.includes("screens")) setScreenshotFiles([]);
+      if (!next.includes("prd")) setPrdText("");
+      return next;
+    });
   }
 
   async function analyze() {
     setAiError(null);
+    setUploadError(null);
+
+    const wantsRecording = selected.includes("recording");
+    const wantsScreens = selected.includes("screens");
+    const hasFootage =
+      Boolean(recordingFile || screenshotFiles.length) ||
+      Boolean(returnedProjectId && getProject(returnedProjectId)?.footage?.blobKey);
+    const hasTextSignal = Boolean(url.trim() || description.trim() || prdText.trim());
+
+    if (wantsRecording && !recordingFile && !wantsScreens && !hasTextSignal) {
+      setUploadError("Add a recording or describe your product.");
+      return;
+    }
+    if (wantsScreens && !screenshotFiles.length && !wantsRecording && !hasTextSignal) {
+      setUploadError("Add screenshots or describe your product.");
+      return;
+    }
+    if ((wantsRecording || wantsScreens) && !hasFootage && !hasTextSignal) {
+      setUploadError("Add media or describe your product to continue.");
+      return;
+    }
+
     setStep(0);
     setAnalyzing(true);
 
-    // Kick off the real audit (if a key is connected) while the steps animate.
     const auditPromise: Promise<AiAudit | undefined> = aiKey
-      ? fetchAudit({ url, description }).catch((e: unknown) => {
+      ? fetchAudit({
+          url,
+          description: [
+            description,
+            selected.includes("prd") && prdText.trim() ? `PRD/changelog:\n${prdText.trim()}` : "",
+            selected.includes("ph") && phDraftUrl ? `Product Hunt draft: ${phDraftUrl}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        }).catch((e: unknown) => {
           setAiError(e instanceof Error ? e.message : "Audit failed.");
           return undefined;
         })
@@ -60,8 +161,51 @@ export default function NewProjectPage() {
     }
 
     const ai = await auditPromise;
-    const project = createProject({ url, description }, ai);
-    router.push(`/projects/${project.id}/audit`);
+
+    let project;
+    if (returnedProjectId) {
+      project =
+        patchProject(returnedProjectId, {
+          url: url.trim() || undefined,
+          oneLiner: description.trim() || undefined,
+        }) ?? getProject(returnedProjectId);
+      if (!project) {
+        setAnalyzing(false);
+        setUploadError("Could not resume your recording session.");
+        return;
+      }
+    } else {
+      project = createProject(
+        {
+          url,
+          description,
+          prdText: selected.includes("prd") ? prdText : undefined,
+          fromRecording: Boolean(recordingFile || screenshotFiles.length),
+        },
+        ai,
+      );
+
+      if (hasFootage && !returnedProjectId) {
+        setSavingFootage(true);
+        try {
+          if (recordingFile) {
+            const { meta } = await saveRecordingFootage(project.id, recordingFile);
+            attachFootage(project.id, meta);
+          } else {
+            const { meta } = await saveScreenshotFootage(project.id, screenshotFiles);
+            attachFootage(project.id, meta);
+          }
+        } catch (e) {
+          setAnalyzing(false);
+          setSavingFootage(false);
+          setUploadError(storageErrorMessage(e));
+          return;
+        }
+        setSavingFootage(false);
+      }
+    }
+
+    router.push(`/projects/${project!.id}/audit`);
   }
 
   if (analyzing) {
@@ -72,9 +216,11 @@ export default function NewProjectPage() {
         </div>
         <h1 className="mt-6 text-xl font-semibold text-ink">Analyzing your launch</h1>
         <p className="mt-2 text-sm text-ink-mute">
-          {aiKey
-            ? "Auditing with Claude before it generates."
-            : "LaunchReel thinks before it generates."}
+          {savingFootage
+            ? "Saving your media locally…"
+            : aiKey
+              ? "Auditing with Claude before it generates."
+              : "LaunchReel thinks before it generates."}
         </p>
         <ul className="mt-8 w-full space-y-2 text-left">
           {ANALYZING_STEPS.map((s, i) => (
@@ -147,6 +293,50 @@ export default function NewProjectPage() {
           })}
         </div>
 
+        <MediaIntake
+          showRecording={selected.includes("recording")}
+          showScreenshots={selected.includes("screens")}
+          recordingFile={recordingFile}
+          screenshotFiles={screenshotFiles}
+          onRecordingChange={setRecordingFile}
+          onScreenshotsChange={setScreenshotFiles}
+        />
+
+        {selected.includes("record") && (
+          <p className="mt-3 text-sm text-ink-mute">
+            {recordSaved ? (
+              <span className="text-good">Screen recording saved — continue below and analyze.</span>
+            ) : (
+              <>
+                Prefer in-browser capture?{" "}
+                <Link
+                  href={buildRecordReturnUrl({ url, description, prdText })}
+                  className="text-accent-ink hover:text-accent-soft"
+                >
+                  Open the screen recorder →
+                </Link>
+              </>
+            )}
+          </p>
+        )}
+
+        {selected.includes("prd") && (
+          <>
+            <label className="mt-4 block text-sm font-medium text-ink">PRD / changelog</label>
+            <textarea
+              rows={5}
+              value={prdText}
+              onChange={(e) => setPrdText(e.target.value)}
+              placeholder="Paste your PRD, changelog, or feature list — LaunchReel uses this for audit and script context."
+              className="mt-2 w-full resize-none rounded-lg border border-line bg-base px-4 py-3 text-sm text-ink outline-none focus:border-accent/60"
+            />
+          </>
+        )}
+
+        {selected.includes("ph") && (
+          <PhDraftIntake onPrefill={handlePhPrefill} />
+        )}
+
         <label className="mt-6 block text-sm font-medium text-ink">
           What does it do, and who is it for?
         </label>
@@ -159,6 +349,13 @@ export default function NewProjectPage() {
         />
 
         <AiConnect connected={!!aiKey} />
+        <TtsConnect connected={!!ttsKey} />
+
+        {uploadError && (
+          <p className="mt-3 rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-xs text-bad">
+            {uploadError}
+          </p>
+        )}
 
         {aiError && (
           <p className="mt-3 rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
@@ -166,9 +363,29 @@ export default function NewProjectPage() {
           </p>
         )}
 
-        <Button onClick={analyze} size="lg" className="mt-5 w-full">
-          {aiKey ? "Analyze my launch with Claude" : "Analyze my launch"}
-        </Button>
+        {selected.includes("agent") && url.trim() && description.trim() ? (
+          showAgent ? (
+            <AgentCapturePanel
+              url={url.startsWith("http") ? url : `https://${url}`}
+              contextLine={description}
+              onCancel={() => setShowAgent(false)}
+            />
+          ) : (
+            <Button onClick={() => setShowAgent(true)} size="lg" className="mt-5 w-full">
+              Explore URL with agent →
+            </Button>
+          )
+        ) : (
+          <Button onClick={analyze} size="lg" className="mt-5 w-full">
+            {aiKey ? "Analyze my launch with Claude" : "Analyze my launch"}
+          </Button>
+        )}
+
+        {url.trim() && !selected.includes("agent") && (
+          <p className="mt-3 text-center text-xs text-ink-mute">
+            Tip: select &quot;Give agent access&quot; to let LaunchReel explore your URL automatically.
+          </p>
+        )}
       </Card>
     </div>
   );
@@ -245,6 +462,72 @@ function AiConnect({ connected }: { connected: boolean }) {
         <p className="mt-1.5 text-xs text-ink-mute">
           Connect your Anthropic key and the Launch Doctor becomes a real Claude
           audit. Without it, LaunchReel uses its built-in generator.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function TtsConnect({ connected }: { connected: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [provider, setProvider] = useState<"elevenlabs" | "openai">("elevenlabs");
+
+  return (
+    <div className="mt-4 rounded-xl border border-line bg-surface-2 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className={cn("size-2 rounded-full", connected ? "bg-good" : "bg-ink-faint")} />
+          <p className="text-sm font-medium text-ink">
+            {connected ? "AI voice connected" : "AI voiceover (optional — shy founder mode)"}
+          </p>
+        </div>
+        {connected ? (
+          <button onClick={() => clearTtsKey()} className="text-xs text-ink-mute hover:text-ink">
+            Disconnect
+          </button>
+        ) : (
+          <button onClick={() => setOpen((o) => !o)} className="text-xs text-accent-ink hover:text-accent-soft">
+            {open ? "Cancel" : "Connect"}
+          </button>
+        )}
+      </div>
+      {connected ? (
+        <p className="mt-1.5 text-xs text-ink-mute">
+          LaunchReel narrates your video — you never speak on camera.
+        </p>
+      ) : open ? (
+        <div className="mt-3 space-y-2">
+          <select
+            value={provider}
+            onChange={(e) => setProvider(e.target.value as "elevenlabs" | "openai")}
+            className="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm"
+          >
+            <option value="elevenlabs">ElevenLabs</option>
+            <option value="openai">OpenAI TTS</option>
+          </select>
+          <input
+            type="password"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={provider === "openai" ? "sk-..." : "xi-..."}
+            className="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm"
+          />
+          <Button
+            size="sm"
+            disabled={!value.trim()}
+            onClick={() => {
+              setTtsKey(value, provider);
+              setValue("");
+              setOpen(false);
+            }}
+          >
+            Save TTS key
+          </Button>
+        </div>
+      ) : (
+        <p className="mt-1.5 text-xs text-ink-mute">
+          Without a voice key, videos still render with captions + music — no founder voice needed.
         </p>
       )}
     </div>

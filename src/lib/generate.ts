@@ -6,6 +6,7 @@ export interface NewProjectInput {
   description?: string;
   audience?: string;
   name?: string;
+  prdText?: string;
   /** Marks projects that originated from the in-browser recorder. */
   fromRecording?: boolean;
 }
@@ -91,9 +92,10 @@ function statusForScore(score: number): ProjectStatus {
  */
 export function buildProject(input: NewProjectInput, ai?: AiAudit): Project {
   const name = deriveName(input);
+  const prdBlock = input.prdText?.trim() ? `\n\nPRD / changelog:\n${input.prdText.trim()}` : "";
   const oneLiner =
     ai?.refinedOneLiner?.trim() ||
-    input.description?.trim() ||
+    (input.description?.trim() ? input.description.trim() + prdBlock : "") ||
     (input.fromRecording
       ? "A product walkthrough recorded with LaunchReel."
       : `${name} — the best way to show software.`);

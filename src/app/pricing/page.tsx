@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ButtonLink, Card, Eyebrow } from "@/components/ui";
 import { Logo } from "@/components/logo";
+import { PricingCheckoutButton } from "@/components/pricing-checkout-button";
 
 export const metadata = { title: "Pricing — LaunchReel" };
 
@@ -11,6 +12,7 @@ const PLANS = [
     cadence: "",
     cta: "Score my launch",
     highlight: false,
+    plan: "free",
     features: ["1 Launch Doctor audit", "1 watermarked mini kit", "Share page with LaunchReel branding"],
   },
   {
@@ -19,6 +21,7 @@ const PLANS = [
     cadence: "one-time",
     cta: "Get the full kit",
     highlight: false,
+    plan: "one-launch",
     features: ["Full launch kit", "Watermark removed", "Download-all ZIP", "Product Hunt kit", "Social clips + launch copy"],
   },
   {
@@ -27,6 +30,7 @@ const PLANS = [
     cadence: "/month",
     cta: "Start Founder Pro",
     highlight: true,
+    plan: "founder-pro",
     features: ["Multiple launch kits", "Brand kit", "Analytics", "Localized versions", "Changelog → launch assets", "Regenerations"],
   },
   {
@@ -35,6 +39,7 @@ const PLANS = [
     cadence: "/month",
     cta: "Start Studio",
     highlight: false,
+    plan: "studio",
     features: ["More kits", "Priority rendering", "Team workspace", "Advanced analytics", "Multiple products"],
   },
 ];
@@ -85,13 +90,11 @@ export default function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <ButtonLink
-                href="/new"
-                variant={p.highlight ? "primary" : "secondary"}
-                className="mt-6 w-full"
-              >
-                {p.cta}
-              </ButtonLink>
+              <PricingCheckoutButton
+                plan={p.plan}
+                label={p.cta}
+                highlight={p.highlight}
+              />
             </Card>
           ))}
         </div>

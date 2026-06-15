@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Card, Eyebrow, StatusBadge } from "@/components/ui";
+import { ProjectMediaBadges } from "@/components/project-media-badges";
 import { useStore } from "@/lib/store";
 
 const COLLECTIONS = [
@@ -36,7 +37,17 @@ export default function LibraryPage() {
       </div>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {projects.map((p) => (
+        {projects.length === 0 ? (
+          <Card className="col-span-full p-8 text-center">
+            <p className="text-sm text-ink-mute">
+              No launch kits yet.{" "}
+              <Link href="/new" className="text-accent-ink hover:text-accent-soft">
+                Create your first →
+              </Link>
+            </p>
+          </Card>
+        ) : (
+          projects.map((p) => (
           <Link
             key={p.id}
             href={`/projects/${p.id}/result`}
@@ -51,16 +62,22 @@ export default function LibraryPage() {
                   </svg>
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-2 p-4">
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-ink">{p.name}</p>
-                  <p className="text-xs text-ink-mute">Score {p.score} · {p.updatedAt}</p>
+              <div className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-ink">{p.name}</p>
+                    <p className="text-xs text-ink-mute">Score {p.score} · {p.updatedAt}</p>
+                  </div>
+                  <StatusBadge status={p.status} />
                 </div>
-                <StatusBadge status={p.status} />
+                <div className="mt-3">
+                  <ProjectMediaBadges project={p} />
+                </div>
               </div>
             </Card>
           </Link>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
