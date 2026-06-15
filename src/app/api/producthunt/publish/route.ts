@@ -4,12 +4,16 @@ import { isProductHuntOAuthEnabled } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
 import { getOAuthConnection } from "@/lib/db/oauth";
 import { getProject } from "@/lib/db/projects";
+import { buildPhLaunchPackage } from "@/lib/ph-launch-prep";
 import { resolvePublishVideo } from "@/lib/resolve-publish-video";
 import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 
-/** Publish launch kit to Product Hunt (requires OAuth connection). */
+/**
+ * Prepare Product Hunt launch package (PH has no public create-post API).
+ * Requires OAuth so we know the user connected their PH account.
+ */
 export async function POST(req: Request) {
   if (!isProductHuntOAuthEnabled()) {
     return jsonError("Product Hunt OAuth is not configured.", 503);
@@ -39,10 +43,6 @@ export async function POST(req: Request) {
   }
 
   const video = resolvePublishVideo(project);
-  const tagline = body.tagline?.trim() || project.oneLiner || project.name;
-  const description = body.description?.trim() || project.oneLiner || "Created with LaunchReel";
-  const poster = project.assets.productHunt.find((a) => a.id === "ph-poster")?.body;
-
   if (!video.url) {
     return NextResponse.json(
       {
@@ -50,23 +50,21 @@ export async function POST(req: Request) {
         needsCloudBackup: true,
         message:
           "Gallery video is not in cloud storage yet. Open /settings → Backup local media, then retry.",
-        draft: { tagline, description, projectId, blobKey: video.blobKey },
+        draft: { projectId, blobKey: video.blobKey },
       },
       { status: 409 },
     );
   }
 
+  const launchPackage = buildPhLaunchPackage(project, video.url);
+  if (body.tagline?.trim()) launchPackage.tagline = body.tagline.trim();
+  if (body.description?.trim()) launchPackage.description = body.description.trim();
+
   return NextResponse.json({
     ok: true,
-    status: "queued",
-    message: `Product Hunt publish draft ready for "${project.name}". Wire GraphQL post mutation in production.`,
-    draft: {
-      tagline,
-      description,
-      projectId,
-      videoUrl: video.url,
-      posterImage: poster?.startsWith("data:") ? null : poster,
-      blobKey: video.blobKey,
-    },
+    status: "prepared",
+    message: launchPackage.apiNote,
+    launchPackage,
+    projectId,
   });
 }

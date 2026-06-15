@@ -15,7 +15,7 @@ npm run verify                    # build + lint
 
 Copy `.env.example` → `.env.local` to enable optional cloud features (Clerk, Postgres, Stripe, S3/R2, OAuth).
 
-## What’s built (P0–P4 complete)
+## What’s built (P0–P5 complete)
 
 **Full consolidated reference → [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md)**
 
@@ -26,7 +26,7 @@ Copy `.env.example` → `.env.local` to enable optional cloud features (Clerk, P
 | **Media** | Shot-list compositor, Ken-Burns screenshots, A/B hook previews, 3× social clips, teaser GIF |
 | **Launch kit** | PH gallery, copy, landing page, ZIP export, brand kit, interactive demo builder |
 | **Share** | Public `/share/[id]`, OG meta, view analytics (local + Postgres) |
-| **Cloud** | Clerk auth, Postgres sync, S3/R2 blob backup, Stripe credits, OAuth publish panel |
+| **Cloud** | Clerk auth, Postgres sync, S3/R2 backup, Stripe credits, YouTube upload, PH launch prep |
 | **Loop** | Agent build loop — `npm run loop:tick` · see `docs/BUILD_LOOP.md` |
 
 ## Flow

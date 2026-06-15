@@ -32,7 +32,7 @@ Without Trigger.dev, renders continue client-side in the browser.
 
 ## 4. Remotion Lambda
 
-Set `REMOTION_LAMBDA_FUNCTION_NAME` and AWS credentials. POST `/api/render/lambda` returns a render id stub; wire `@remotion/lambda` in production.
+Set `REMOTION_LAMBDA_FUNCTION_NAME` and AWS credentials. POST `/api/render/lambda` invokes your Lambda function asynchronously with the project payload.
 
 ## 5. OAuth (YouTube + Product Hunt)
 
@@ -61,10 +61,10 @@ Set `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`. For Cloudflare R2
 | `POST /api/stripe/checkout` | Stripe Checkout session |
 | `POST /api/stripe/webhook` | Credit fulfillment |
 | `POST /api/render-queue` | Enqueue cloud render |
-| `POST /api/render/lambda` | Remotion Lambda stub |
+| `POST /api/render/lambda` | Remotion Lambda invoke |
 | `POST /api/projects/sync` | Push local + pull merged list |
-| `POST /api/youtube/upload` | YouTube upload stub (OAuth required) |
+| `POST /api/youtube/upload` | YouTube resumable upload (OAuth + cloud video) |
 | `POST /api/blobs/presign` | Presigned upload URL for footage/renders |
-| `POST /api/producthunt/publish` | Product Hunt publish stub (OAuth required) |
+| `POST /api/producthunt/publish` | PH launch kit prep (no create-post API) |
 | `GET /api/share/[id]/meta` | Public OG metadata for share pages |
 | `GET/POST /api/share/[id]/views` | Share page view counts (Postgres) |

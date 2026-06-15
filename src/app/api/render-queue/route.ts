@@ -3,7 +3,7 @@ import { getAuthEmail, requireAuthUserId } from "@/lib/auth";
 import { isCloudSyncEnabled } from "@/lib/cloud/config";
 import { dispatchTriggerRenderJob } from "@/lib/cloud/trigger";
 import { withDb } from "@/lib/db/client";
-import { createRenderJob, getRenderJob } from "@/lib/db/render-jobs";
+import { createRenderJob, getRenderJob, listRenderJobs } from "@/lib/db/render-jobs";
 import { ensureAppUser, consumeCredit, getAppUser } from "@/lib/db/users";
 import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty } from "@/lib/api-helpers";
 
@@ -69,9 +69,12 @@ export async function GET(req: Request) {
   if (isNextResponse(userId)) return userId;
 
   const jobId = new URL(req.url).searchParams.get("jobId");
-  if (!jobId) return jsonError('Missing "jobId".', 400);
+  if (jobId) {
+    const job = await withDb(async (db) => getRenderJob(db, userId, jobId));
+    if (!job) return jsonError("Job not found.", 404);
+    return NextResponse.json({ job });
+  }
 
-  const job = await withDb(async (db) => getRenderJob(db, userId, jobId));
-  if (!job) return jsonError("Job not found.", 404);
-  return NextResponse.json({ job });
+  const jobs = await withDb(async (db) => listRenderJobs(db, userId, 10));
+  return NextResponse.json({ jobs: jobs ?? [] });
 }

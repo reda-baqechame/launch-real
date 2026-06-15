@@ -52,8 +52,18 @@ See `docs/PHASE10.md` for setup. Without env vars the app runs in local-only mod
 
 **P4 complete.**
 
+## P5 — Production wiring
+
+- [x] YouTube resumable upload (real Data API v3 + token refresh)
+- [x] Product Hunt launch kit prep (PH has no create-post API)
+- [x] Remotion Lambda async invoke via AWS SDK
+- [x] Render job list on `/settings`
+- [x] Share tab live preview on result page
+
+**P5 complete.**
+
 Each loop iteration should:
 1. Read this file + `docs/BUILD_LOOP.md`
 2. Implement **one** unchecked task (or fix verify if red)
 3. Mark task done, run `npm run verify`
-4. **Backlog complete (P0–P4)** — ticks should verify green only unless you add new `- [ ]` items
+4. **Backlog complete (P0–P5)** — ticks should verify green only unless you add new `- [ ]` items

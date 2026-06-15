@@ -1,6 +1,6 @@
 # LaunchReel — consolidated build status
 
-Last verified: **P0–P4 complete** (`npm run verify` green).
+Last verified: **P0–P5 complete** (`npm run verify` green).
 
 LaunchReel is a **client-first** Next.js app: project metadata in localStorage, media blobs in IndexedDB. Cloud features (Clerk, Postgres, Stripe, S3/R2, OAuth) are optional and degrade gracefully when env vars are unset.
 
@@ -123,13 +123,21 @@ Full cloud setup: `docs/PHASE10.md`.
 
 ---
 
-## Not yet wired (production-only)
+## P5 — Production wiring
 
-These return structured stubs until real credentials + SDK calls are added:
+- **YouTube upload** — real resumable upload from cloud video URL + OAuth token refresh
+- **Product Hunt** — launch package + checklist (PH API cannot create posts)
+- **Remotion Lambda** — async AWS Lambda invoke when configured
+- **Settings** — recent render jobs list
+- **Share tab** — live preview on result page
 
-- YouTube resumable upload (`@googleapis/youtube`)
-- Product Hunt GraphQL publish mutation
-- Remotion Lambda full render pipeline (`@remotion/lambda`)
+---
+
+## Not yet wired (external / platform limits)
+
+- Product Hunt post creation (platform does not expose this API)
+- Remotion composition deploy on Lambda (requires your Remotion project + serve URL)
+- Trigger.dev worker task implementation (`render-launch-video`)
 
 ---
 

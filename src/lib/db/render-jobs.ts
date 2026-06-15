@@ -73,3 +73,15 @@ export async function updateRenderJobStatus(
     [jobId, status, patch?.result ?? null, patch?.error ?? null],
   );
 }
+
+export async function listRenderJobs(
+  db: Pool,
+  clerkId: string,
+  limit = 10,
+): Promise<RenderJob[]> {
+  const res = await db.query(
+    `SELECT * FROM render_jobs WHERE clerk_id = $1 ORDER BY created_at DESC LIMIT $2`,
+    [clerkId, limit],
+  );
+  return res.rows.map((row) => rowToJob(row));
+}

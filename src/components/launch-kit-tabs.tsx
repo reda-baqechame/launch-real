@@ -17,6 +17,7 @@ import { useProjectRenders } from "@/lib/use-project-renders";
 import { useSocialClips } from "@/lib/use-social-clips";
 import { PublishPanel } from "@/components/publish-panel";
 import { downloadBlob } from "@/lib/download-utils";
+import { findSharePoster, resolveShareVideo } from "@/lib/share-video";
 import { analyticsWithViews } from "@/lib/analytics-store";
 import { loadScreenshotUrls } from "@/lib/screenshot-loader";
 import { LocalizeTab } from "@/components/localize-tab";
@@ -573,11 +574,48 @@ function VideoTab({ project }: { project: Project }) {
 }
 
 function SharePageTab({ project }: { project: Project }) {
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let revoked: string | null = null;
+    void (async () => {
+      const poster = findSharePoster(project);
+      if (poster) setPosterUrl(poster);
+      const media = await resolveShareVideo(project);
+      if (media) {
+        if (media.url.startsWith("blob:")) revoked = media.url;
+        setVideoUrl(media.url);
+      }
+    })();
+    return () => {
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [project]);
+
   return (
     <Section title="Public share page" hint="Every kit is public by design. Every customer becomes distribution.">
       <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
         <div className="rounded-2xl border border-line bg-surface p-5">
-          <VideoSurface label={`${project.name} — share page`} />
+          {videoUrl ? (
+            <video
+              src={videoUrl}
+              controls
+              muted
+              playsInline
+              poster={posterUrl ?? undefined}
+              className="aspect-video w-full rounded-lg border border-line bg-black"
+            />
+          ) : posterUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={posterUrl}
+              alt=""
+              className="aspect-video w-full rounded-lg border border-line object-cover"
+            />
+          ) : (
+            <VideoSurface label={`${project.name} — share page`} />
+          )}
           <h3 className="mt-4 text-lg font-medium text-ink">{project.name}</h3>
           <p className="text-sm text-ink-mute">{project.oneLiner}</p>
         </div>

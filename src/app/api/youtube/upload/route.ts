@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuthUserId } from "@/lib/auth";
+import { getYouTubeAccessToken } from "@/lib/cloud/google-oauth";
+import { uploadVideoToYouTube } from "@/lib/cloud/youtube-upload";
 import { isYouTubeOAuthEnabled } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
 import { getOAuthConnection } from "@/lib/db/oauth";
@@ -18,14 +20,19 @@ export async function POST(req: Request) {
   const userId = await requireAuthUserId();
   if (isNextResponse(userId)) return userId;
 
-  const body = await parseJsonBody<{ projectId?: string; title?: string; description?: string }>(req);
+  const body = await parseJsonBody<{
+    projectId?: string;
+    title?: string;
+    description?: string;
+    privacyStatus?: "public" | "unlisted" | "private";
+  }>(req);
   if (isNextResponse(body)) return body;
 
   const projectId = requireNonEmpty(body.projectId, "projectId");
   if (isNextResponse(projectId)) return projectId;
 
-  const conn = await withDb(async (db) => getOAuthConnection(db, userId, "youtube"));
-  if (!conn?.accessToken) {
+  const hasConn = await withDb(async (db) => getOAuthConnection(db, userId, "youtube"));
+  if (!hasConn?.accessToken) {
     return jsonError("Connect YouTube on /settings first.", 400);
   }
 
@@ -51,16 +58,29 @@ export async function POST(req: Request) {
     );
   }
 
-  return NextResponse.json({
-    ok: true,
-    status: "queued",
-    message: `YouTube resumable upload ready for "${title}". Wire @googleapis/youtube in production.`,
-    draft: {
+  const accessToken = await withDb(async (db) => getYouTubeAccessToken(db!, userId));
+  if (!accessToken) {
+    return jsonError("YouTube token expired. Reconnect on /settings.", 401);
+  }
+
+  try {
+    const uploaded = await uploadVideoToYouTube({
+      accessToken,
+      videoUrl: video.url,
       title,
       description,
+      privacyStatus: body.privacyStatus ?? "unlisted",
+    });
+
+    return NextResponse.json({
+      ok: true,
+      status: "uploaded",
+      message: `Uploaded to YouTube as unlisted: ${uploaded.url}`,
+      videoId: uploaded.videoId,
+      url: uploaded.url,
       projectId,
-      videoUrl: video.url,
-      blobKey: video.blobKey,
-    },
-  });
+    });
+  } catch (e) {
+    return jsonError(e instanceof Error ? e.message : "YouTube upload failed.", 502);
+  }
 }

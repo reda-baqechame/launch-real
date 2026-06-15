@@ -27,6 +27,7 @@ function IntegrationsPanel({
   queueMsg,
   backupBusy,
   backupMsg,
+  renderJobs,
   onEnqueue,
   onBackupBlobs,
 }: {
@@ -35,6 +36,7 @@ function IntegrationsPanel({
   queueMsg: string | null;
   backupBusy: boolean;
   backupMsg: string | null;
+  renderJobs: { id: string; projectId: string; status: string; createdAt: string }[];
   onEnqueue: () => void;
   onBackupBlobs: () => void;
 }) {
@@ -89,6 +91,19 @@ function IntegrationsPanel({
           </Button>
         )}
         {queueMsg && <p className="mt-2 text-xs text-ink-soft">{queueMsg}</p>}
+        {renderJobs.length > 0 && (
+          <ul className="mt-3 space-y-2 text-xs">
+            {renderJobs.map((job) => (
+              <li
+                key={job.id}
+                className="flex items-center justify-between rounded-lg border border-line px-3 py-2 text-ink-soft"
+              >
+                <span className="truncate font-mono">{job.id.slice(0, 18)}…</span>
+                <span className="ml-2 shrink-0 capitalize text-ink-mute">{job.status}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <Card className="p-5">
@@ -141,12 +156,22 @@ function SettingsPageInner() {
   const [queueMsg, setQueueMsg] = useState<string | null>(null);
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupMsg, setBackupMsg] = useState<string | null>(null);
+  const [renderJobs, setRenderJobs] = useState<
+    { id: string; projectId: string; status: string; createdAt: string }[]
+  >([]);
 
   const load = useCallback(() => {
     void fetch("/api/integrations")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setStatus(data))
       .catch(() => setStatus(null));
+
+    void fetch("/api/render-queue")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { jobs?: { id: string; projectId: string; status: string; createdAt: string }[] } | null) => {
+        setRenderJobs(data?.jobs ?? []);
+      })
+      .catch(() => setRenderJobs([]));
   }, []);
 
   useEffect(() => {
@@ -180,6 +205,7 @@ function SettingsPageInner() {
       const data = (await res.json()) as { job?: { id: string }; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Queue failed.");
       setQueueMsg(`Queued job ${data.job?.id ?? ""}`);
+      load();
     } catch (e) {
       setQueueMsg(e instanceof Error ? e.message : "Queue failed.");
     } finally {
@@ -227,6 +253,7 @@ function SettingsPageInner() {
               queueMsg={queueMsg}
               backupBusy={backupBusy}
               backupMsg={backupMsg}
+              renderJobs={renderJobs}
               onEnqueue={() => void enqueueCloudRender()}
               onBackupBlobs={() => void backupLocalBlobs()}
             />
