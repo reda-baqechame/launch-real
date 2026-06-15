@@ -1,22 +1,51 @@
 import type { Pool } from "pg";
 
-export async function incrementShareView(db: Pool, projectId: string): Promise<number> {
-  const res = await db.query(
-    `INSERT INTO share_views (project_id, view_count, updated_at)
-     VALUES ($1, 1, NOW())
-     ON CONFLICT (project_id) DO UPDATE SET
-       view_count = share_views.view_count + 1,
-       updated_at = NOW()
-     RETURNING view_count`,
-    [projectId],
-  );
-  return Number(res.rows[0]?.view_count ?? 1);
+export type ShareEventType = "view" | "play" | "cta";
+
+export interface ShareEventCounts {
+  views: number;
+  plays: number;
+  ctaClicks: number;
 }
 
-export async function getShareViewCount(db: Pool, projectId: string): Promise<number> {
+export async function incrementShareEvent(
+  db: Pool,
+  projectId: string,
+  event: ShareEventType,
+): Promise<ShareEventCounts> {
+  await db.query(
+    `INSERT INTO share_events (project_id, event_type) VALUES ($1, $2)`,
+    [projectId, event],
+  );
+  return getShareEventCounts(db, projectId);
+}
+
+export async function getShareEventCounts(
+  db: Pool,
+  projectId: string,
+): Promise<ShareEventCounts> {
   const res = await db.query(
-    `SELECT view_count FROM share_views WHERE project_id = $1 LIMIT 1`,
+    `SELECT event_type, COUNT(*)::int AS count
+     FROM share_events WHERE project_id = $1 GROUP BY event_type`,
     [projectId],
   );
-  return Number(res.rows[0]?.view_count ?? 0);
+  const counts: ShareEventCounts = { views: 0, plays: 0, ctaClicks: 0 };
+  for (const row of res.rows) {
+    if (row.event_type === "view") counts.views = row.count;
+    if (row.event_type === "play") counts.plays = row.count;
+    if (row.event_type === "cta") counts.ctaClicks = row.count;
+  }
+  return counts;
+}
+
+/** @deprecated use incrementShareEvent */
+export async function incrementShareView(db: Pool, projectId: string): Promise<number> {
+  const c = await incrementShareEvent(db, projectId, "view");
+  return c.views;
+}
+
+/** @deprecated use getShareEventCounts */
+export async function getShareViewCount(db: Pool, projectId: string): Promise<number> {
+  const c = await getShareEventCounts(db, projectId);
+  return c.views;
 }

@@ -26,7 +26,7 @@ Credits are stored on `app_users.credits` and consumed when enqueueing cloud ren
 
 ## 3. Trigger.dev render queue
 
-Set `TRIGGER_SECRET_KEY` and `TRIGGER_API_URL`. POST `/api/render-queue` creates a `render_jobs` row and dispatches to Trigger.dev task `render-launch-video`.
+Set `TRIGGER_SECRET_KEY`, `TRIGGER_API_URL`, and optionally `RENDER_WEBHOOK_SECRET`. POST `/api/render-queue` creates a `render_jobs` row and dispatches to Trigger.dev task `render-launch-video`. The worker stub in `workers/render-launch-video.ts` POSTs back to `/api/render-queue/complete`.
 
 Without Trigger.dev, renders continue client-side in the browser.
 
@@ -61,10 +61,11 @@ Set `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`. For Cloudflare R2
 | `POST /api/stripe/checkout` | Stripe Checkout session |
 | `POST /api/stripe/webhook` | Credit fulfillment |
 | `POST /api/render-queue` | Enqueue cloud render |
+| `POST /api/render-queue/complete` | Mark render job done (webhook) |
 | `POST /api/render/lambda` | Remotion Lambda invoke |
 | `POST /api/projects/sync` | Push local + pull merged list |
 | `POST /api/youtube/upload` | YouTube resumable upload (OAuth + cloud video) |
 | `POST /api/blobs/presign` | Presigned upload URL for footage/renders |
 | `POST /api/producthunt/publish` | PH launch kit prep (no create-post API) |
 | `GET /api/share/[id]/meta` | Public OG metadata for share pages |
-| `GET/POST /api/share/[id]/views` | Share page view counts (Postgres) |
+| `GET/POST /api/share/[id]/views` | Share page analytics (views, plays, CTA) |

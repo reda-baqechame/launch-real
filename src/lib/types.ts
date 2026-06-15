@@ -109,6 +109,8 @@ export interface Project {
   outputMode?: "marketing" | "explainer" | "tutorial";
   language?: string;
   cloudBlobs?: Record<string, CloudBlobRef>;
+  /** Raw PRD/changelog pasted at intake — powers changelog launch assets. */
+  sourceChangelog?: string;
 }
 
 export interface ScoreBreakdown {

@@ -22,7 +22,7 @@ BUILD_BACKLOG.md  ──►  scripts/build-loop.ps1  ──►  AGENT_LOOP_WAKE_
    after task            (build + lint)            next P0 task
 ```
 
-1. **`BUILD_BACKLOG.md`** — prioritized checkbox backlog (P0 → P1 → P2).
+1. **`BUILD_BACKLOG.md`** — prioritized checkbox backlog (P0 → P6). **All complete** — loop ticks verify green unless new tasks are added.
 2. **`scripts/build-loop.ps1`** — runs `npm run verify`, finds the next `- [ ]` task, emits `AGENT_LOOP_WAKE_BUILD` JSON for Cursor/agent sessions.
 3. **`scripts/start-build-loop.ps1`** — fixed 15m interval; use with Cursor loop skill / monitored shell.
 
@@ -30,12 +30,10 @@ BUILD_BACKLOG.md  ──►  scripts/build-loop.ps1  ──►  AGENT_LOOP_WAKE_
 
 When you see `AGENT_LOOP_WAKE_BUILD`:
 
-1. Read `BUILD_BACKLOG.md` and `docs/BUILD_LOOP.md`.
+1. Read `BUILD_BACKLOG.md` and `docs/BUILD_STATUS.md`.
 2. If verify failed last tick, fix build/lint first.
-3. Otherwise implement **one** unchecked P0 task.
-4. Mark it `[x]` in `BUILD_BACKLOG.md`.
-5. Run `npm run verify`.
-6. Do not start P2 unless the user explicitly asks.
+3. If all tasks are `[x]`, run `npm run verify` only — add new `- [ ]` items when scope expands.
+4. Otherwise implement **one** unchecked task, mark `[x]`, run verify.
 
 ## Stopping the loop
 

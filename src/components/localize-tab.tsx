@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui";
 import { fetchLocalize, getKey } from "@/lib/ai";
+import { getBrandKit, saveBrandKit } from "@/lib/brand-kit-store";
 import { LOCALES } from "@/lib/mock-data";
 import { useStore } from "@/lib/store";
 import type { Project } from "@/lib/types";
@@ -44,6 +45,12 @@ export function LocalizeTab({ project }: { project: Project }) {
         linkedin: project.captions?.linkedin ?? "",
         phFirstComment: project.captions?.phFirstComment ?? "",
       });
+      const localeLabel = LOCALES.find((l) => l.code === locale)?.label ?? locale;
+      const kit = getBrandKit();
+      const langs = kit.localizedLanguages.includes(localeLabel) ?
+        kit.localizedLanguages
+      : [...kit.localizedLanguages, localeLabel];
+      saveBrandKit({ ...kit, defaultLanguage: locale, localizedLanguages: langs });
       setResult(`Localized hook: “${out.hook}”\nX post: ${out.x}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Localization failed.");

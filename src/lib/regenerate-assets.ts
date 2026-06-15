@@ -43,6 +43,7 @@ async function loadProjectMedia(project: Project) {
 /** Re-render vertical social clips only (no hero video / PH kit). */
 export async function regenerateSocialClips(
   project: Project,
+  watermark = true,
 ): Promise<LaunchAsset[]> {
   const moments = selectedMoments(project);
   if (!moments.length) {
@@ -60,7 +61,7 @@ export async function regenerateSocialClips(
       plans: clipPlans,
       ctaText: script.cta,
       clicks: footage.clicks,
-      watermark: true,
+      watermark,
     });
 
     const socialAssets = await Promise.all(

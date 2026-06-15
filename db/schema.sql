@@ -50,3 +50,12 @@ CREATE TABLE IF NOT EXISTS share_views (
   view_count INTEGER NOT NULL DEFAULT 0,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS share_events (
+  id SERIAL PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_share_events_project ON share_events(project_id, event_type);

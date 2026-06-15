@@ -77,6 +77,10 @@ export function teaserGifKey(projectId: string): string {
   return `gif:${projectId}`;
 }
 
+export function variantCutKey(projectId: string, variant: "founder" | "investor"): string {
+  return `render:${projectId}:cut-${variant}`;
+}
+
 export async function saveBlob(
   key: string,
   projectId: string,

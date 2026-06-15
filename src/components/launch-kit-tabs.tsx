@@ -19,6 +19,9 @@ import { PublishPanel } from "@/components/publish-panel";
 import { downloadBlob } from "@/lib/download-utils";
 import { findSharePoster, resolveShareVideo } from "@/lib/share-video";
 import { analyticsWithViews } from "@/lib/analytics-store";
+import type { ShareEventCounts } from "@/lib/share-analytics";
+import { useCredits } from "@/lib/use-credits";
+import { shouldWatermark } from "@/lib/watermark-policy";
 import { loadScreenshotUrls } from "@/lib/screenshot-loader";
 import { LocalizeTab } from "@/components/localize-tab";
 import { fetchRewrite, getKey } from "@/lib/ai";
@@ -136,18 +139,18 @@ function CopyTab({ project }: { project: Project }) {
 export function LaunchKitTabs({ project }: { project: Project }) {
   const [tab, setTab] = useState<Tab>("Video");
   const assets = project.assets;
-  const [serverViews, setServerViews] = useState<number | null>(null);
+  const [serverCounts, setServerCounts] = useState<ShareEventCounts | null>(null);
 
   useEffect(() => {
     void fetch(`/api/share/${project.id}/views`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { views?: number | null } | null) => {
-        if (typeof data?.views === "number") setServerViews(data.views);
+      .then((data: { counts?: ShareEventCounts | null } | null) => {
+        if (data?.counts) setServerCounts(data.counts);
       })
-      .catch(() => setServerViews(null));
+      .catch(() => setServerCounts(null));
   }, [project.id]);
 
-  const analytics = analyticsWithViews(project, serverViews);
+  const analytics = analyticsWithViews(project, serverCounts);
 
   return (
     <div className="mt-8">
@@ -351,11 +354,45 @@ function defaultScript(project: Project): VideoScript {
 
 function VideoTab({ project }: { project: Project }) {
   const { attachRenders } = useStore();
+  const credits = useCredits();
+  const applyWatermark = shouldWatermark(credits);
   const { url: footageUrl, loading } = useFootageUrl(project.footage);
   const { items: renderItems, loading: rendersLoading } = useProjectRenders(project.renders);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [abUrls, setAbUrls] = useState<{ variant: number; hook: string; url: string }[]>([]);
   const [teaserUrl, setTeaserUrl] = useState<string | null>(null);
+  const [variantCuts, setVariantCuts] = useState<{ id: string; title: string; url: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const revoked: string[] = [];
+    const items = project.assets.videos.filter(
+      (v) => (v.id === "v5" || v.id === "v6") && v.blobKey,
+    );
+    void (async () => {
+      if (!items.length) {
+        if (!cancelled) setVariantCuts([]);
+        return;
+      }
+      const rows = await Promise.all(
+        items.map(async (v) => {
+          const url = await getBlobUrl(v.blobKey!, "render");
+          return url ? { id: v.id, title: v.title, url } : null;
+        }),
+      );
+      if (cancelled) {
+        rows.forEach((r) => r && URL.revokeObjectURL(r.url));
+        return;
+      }
+      const valid = rows.filter(Boolean) as { id: string; title: string; url: string }[];
+      revoked.push(...valid.map((v) => v.url));
+      setVariantCuts(valid);
+    })();
+    return () => {
+      cancelled = true;
+      revoked.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [project.assets.videos, project.id]);
 
   useEffect(() => {
     const gifKey =
@@ -457,6 +494,21 @@ function VideoTab({ project }: { project: Project }) {
           </div>
         )}
 
+        {variantCuts.length > 0 && (
+          <div className="mb-6 rounded-xl border border-line bg-surface p-4">
+            <p className="text-sm font-medium text-ink">Audience cuts</p>
+            <p className="mt-1 text-xs text-ink-mute">Founder vs investor hook variants — same footage, different opening.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {variantCuts.map((v) => (
+                <div key={v.id} className="rounded-lg border border-line bg-base p-2">
+                  <p className="text-xs font-medium text-ink">{v.title}</p>
+                  <video src={v.url} controls muted className="mt-2 aspect-video w-full rounded border border-line bg-black" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {teaserUrl && (
           <div className="mb-6 rounded-xl border border-line bg-surface p-4">
             <p className="text-sm font-medium text-ink">5-second teaser GIF</p>
@@ -496,7 +548,7 @@ function VideoTab({ project }: { project: Project }) {
             script={script}
             moments={project.moments}
             imageUrls={imageUrls.length ? imageUrls : undefined}
-            watermark
+            watermark={applyWatermark}
             onComplete={(results) => {
               void (async () => {
                 const renders = await Promise.all(
@@ -533,7 +585,9 @@ function VideoTab({ project }: { project: Project }) {
           <Pill>1:1 · LinkedIn / X</Pill>
         </div>
         <p className="mt-4 text-xs text-ink-mute">
-          Free videos include a LaunchReel end card. Upgrade to remove it.
+          {applyWatermark ?
+            "Free videos include a LaunchReel end card. Upgrade to remove it."
+          : "Watermark removed — you have cloud credits."}
         </p>
       </div>
 

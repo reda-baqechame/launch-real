@@ -17,7 +17,10 @@ import {
   getTtsProvider,
 } from "@/lib/ai";
 import { formatTimecode, grabFrame } from "@/lib/director";
-import { getBlob, getBlobUrl, narrationKey, renderKey, saveBlob, saveRender, socialClipKey, teaserGifKey, variantRenderKey } from "@/lib/footage-store";
+import { buildChangelogAssets } from "@/lib/changelog-kit";
+import { getBlob, getBlobUrl, narrationKey, renderKey, saveBlob, saveRender, socialClipKey, teaserGifKey, variantCutKey, variantRenderKey } from "@/lib/footage-store";
+import { useCredits } from "@/lib/use-credits";
+import { shouldWatermark } from "@/lib/watermark-policy";
 import { renderTeaserGif } from "@/lib/teaser-gif";
 import { loadScreenshotUrls, momentsFromScreenshots } from "@/lib/screenshot-loader";
 import { buildLaunchKitAssets, drawPhPoster } from "@/lib/launch-kit-build";
@@ -90,6 +93,7 @@ export function MomentReview({ project }: { project: Project }) {
   const [step, setStep] = useState(0);
   const analysisStarted = useRef(false);
   const [appSummary, setAppSummary] = useState(project.oneLiner);
+  const credits = useCredits();
 
   const runAnalysis = useCallback(async () => {
     if (!project.footage?.blobKey || !getKey()) return;
@@ -185,6 +189,7 @@ export function MomentReview({ project }: { project: Project }) {
     setStep(0);
 
     try {
+      const applyWatermark = shouldWatermark(credits);
       const footageUrl = await getBlobUrl(project.footage.blobKey, "footage");
       if (!footageUrl) throw new Error("Footage missing.");
 
@@ -241,7 +246,7 @@ export function MomentReview({ project }: { project: Project }) {
               script: scriptA,
               moments: selected,
               aspects: ["16:9"],
-              watermark: true,
+              watermark: applyWatermark,
               proxy: true,
               maxDurationSec: 18,
             }),
@@ -252,7 +257,7 @@ export function MomentReview({ project }: { project: Project }) {
               script: scriptB,
               moments: selected,
               aspects: ["16:9"],
-              watermark: true,
+              watermark: applyWatermark,
               proxy: true,
               maxDurationSec: 18,
             }),
@@ -315,7 +320,7 @@ export function MomentReview({ project }: { project: Project }) {
         moments: selected,
         aspects: ["16:9", "9:16", "1:1"],
         narrationUrl,
-        watermark: true,
+        watermark: applyWatermark,
         proxy: false,
       });
 
@@ -350,6 +355,63 @@ export function MomentReview({ project }: { project: Project }) {
         /* teaser GIF optional */
       }
 
+      try {
+        const investorAngle =
+          project.angles.find(
+            (a) =>
+              a.id !== project.selectedAngleId &&
+              (a.audience.toLowerCase().includes("investor") ||
+                a.hook.toLowerCase().includes("investor") ||
+                a.kind === "Category-first"),
+          ) ?? project.angles.find((a) => a.id !== project.selectedAngleId);
+        const founderScript = { ...script!, hook: project.mainHook };
+        const investorScript = {
+          ...script!,
+          hook: investorAngle?.hook ?? project.audit.recommendedHook,
+        };
+        const [founderCut, investorCut] = await Promise.all([
+          renderProductVideo({
+            footageUrl,
+            imageUrls,
+            clicks: project.footage.clicks,
+            script: founderScript,
+            moments: selected,
+            aspects: ["16:9"],
+            narrationUrl,
+            watermark: applyWatermark,
+            proxy: false,
+            maxDurationSec: 28,
+          }),
+          renderProductVideo({
+            footageUrl,
+            imageUrls,
+            clicks: project.footage.clicks,
+            script: investorScript,
+            moments: selected,
+            aspects: ["16:9"],
+            narrationUrl,
+            watermark: applyWatermark,
+            proxy: false,
+            maxDurationSec: 28,
+          }),
+        ]);
+        const fKey = variantCutKey(project.id, "founder");
+        const iKey = variantCutKey(project.id, "investor");
+        await saveBlob(fKey, project.id, founderCut[0].blob, "render");
+        await saveBlob(iKey, project.id, investorCut[0].blob, "render");
+        attachAssets(project.id, {
+          videos: project.assets.videos.map((v) => {
+            if (v.id === "v5") return { ...v, blobKey: fKey, meta: "16:9 · founder hook" };
+            if (v.id === "v6") return { ...v, blobKey: iKey, meta: "16:9 · investor angle" };
+            return v;
+          }),
+        });
+        founderCut.forEach((r) => URL.revokeObjectURL(r.url));
+        investorCut.forEach((r) => URL.revokeObjectURL(r.url));
+      } catch {
+        /* founder/investor cuts optional */
+      }
+
       setStep(5);
       const clipPlans = planSocialClips(selected, script!.hook, script!.cta);
       let socialAssets: LaunchAsset[] = clipPlans.map((plan) => ({
@@ -365,7 +427,7 @@ export function MomentReview({ project }: { project: Project }) {
           plans: clipPlans,
           ctaText: script!.cta,
           clicks: project.footage.clicks,
-          watermark: true,
+          watermark: applyWatermark,
         });
         socialAssets = await Promise.all(
           clipResults.map(async ({ plan, blob }) => {
@@ -408,6 +470,7 @@ export function MomentReview({ project }: { project: Project }) {
       }
 
       setStep(6);
+      let copyAssets: LaunchAsset[] = project.assets.copy;
       if (getKey()) {
         try {
           const captions = await fetchCaptions(
@@ -418,20 +481,29 @@ export function MomentReview({ project }: { project: Project }) {
           attachCaptions(project.id, captions);
 
           const captionById = new Map(captions.socialClips?.map((c) => [c.id, c.caption]) ?? []);
+          copyAssets = [
+            { id: "x", title: "X post", body: captions.x },
+            { id: "li", title: "LinkedIn post", body: captions.linkedin },
+            { id: "ph", title: "PH first comment", body: captions.phFirstComment },
+          ];
           attachAssets(project.id, {
             social: socialAssets.map((a) => ({
               ...a,
               body: captionById.get(a.id) ?? a.body,
             })),
-            copy: [
-              { id: "x", title: "X post", body: captions.x },
-              { id: "li", title: "LinkedIn post", body: captions.linkedin },
-              { id: "ph", title: "PH first comment", body: captions.phFirstComment },
-            ],
+            copy: copyAssets,
           });
         } catch {
           /* captions optional */
         }
+      }
+
+      if (project.sourceChangelog?.trim()) {
+        copyAssets = [
+          ...copyAssets,
+          ...buildChangelogAssets(project.sourceChangelog, project.name),
+        ];
+        attachAssets(project.id, { copy: copyAssets });
       }
 
       URL.revokeObjectURL(footageUrl);

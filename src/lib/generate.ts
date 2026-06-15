@@ -136,5 +136,6 @@ export function buildProject(input: NewProjectInput, ai?: AiAudit): Project {
     moments: momentsFor(),
     assets: kitFor(name),
     analytics: analyticsFor(),
+    sourceChangelog: input.prdText?.trim() || undefined,
   };
 }

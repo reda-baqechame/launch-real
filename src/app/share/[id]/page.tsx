@@ -4,28 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ButtonLink, Pill } from "@/components/ui";
 import { Logo } from "@/components/logo";
+import { ShareDemoPlayer } from "@/components/share-demo-player";
 import { ProjectMissing, useRouteProject } from "@/components/project-gate";
 import { findSharePoster, resolveShareVideo } from "@/lib/share-video";
-
-const VIEW_KEY = "launchreel.share_views";
-
-function logShareView(projectId: string) {
-  try {
-    const raw = localStorage.getItem(VIEW_KEY);
-    const views = raw ? (JSON.parse(raw) as Record<string, number>) : {};
-    views[projectId] = (views[projectId] ?? 0) + 1;
-    localStorage.setItem(VIEW_KEY, JSON.stringify(views));
-  } catch {
-    /* ignore */
-  }
-}
-
-function trackShareView(projectId: string) {
-  logShareView(projectId);
-  void fetch(`/api/share/${projectId}/views`, { method: "POST" }).catch(() => {
-    /* offline or DB disabled */
-  });
-}
+import {
+  logShareEvent,
+  trackShareEventRemote,
+} from "@/lib/share-analytics";
 
 export default function SharePage() {
   const { project, hydrated } = useRouteProject();
@@ -36,7 +21,8 @@ export default function SharePage() {
 
   useEffect(() => {
     if (!project) return;
-    trackShareView(project.id);
+    logShareEvent(project.id, "view");
+    void trackShareEventRemote(project.id, "view");
     let revoked: string | null = null;
     const load = async () => {
       setLoading(true);
@@ -97,6 +83,10 @@ export default function SharePage() {
               playsInline
               poster={posterUrl ?? undefined}
               className="aspect-video w-full rounded-2xl border border-line bg-black"
+              onPlay={() => {
+                logShareEvent(project.id, "play");
+                void trackShareEventRemote(project.id, "play");
+              }}
             />
           ) : posterUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -117,10 +107,28 @@ export default function SharePage() {
         </div>
 
         <div className="mt-8">
-          <ButtonLink href={project.url} size="lg">
+          <ButtonLink
+            href={project.url}
+            size="lg"
+            onClick={() => {
+              logShareEvent(project.id, "cta");
+              void trackShareEventRemote(project.id, "cta");
+            }}
+          >
             Visit {project.name} →
           </ButtonLink>
         </div>
+
+        {project.interactiveDemo?.steps?.length ? (
+          <ShareDemoPlayer
+            demo={project.interactiveDemo}
+            productUrl={project.url}
+            onCtaClick={() => {
+              logShareEvent(project.id, "cta");
+              void trackShareEventRemote(project.id, "cta");
+            }}
+          />
+        ) : null}
       </main>
 
       <footer className="relative z-10 border-t border-line">

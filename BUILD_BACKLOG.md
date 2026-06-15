@@ -62,8 +62,23 @@ See `docs/PHASE10.md` for setup. Without env vars the app runs in local-only mod
 
 **P5 complete.**
 
+## P6 — Feature completion
+
+- [x] Watermark removal when cloud credits > 0 (`shouldWatermark` on all renders)
+- [x] Founder + investor 16:9 cuts (v5 / v6) during kit generation
+- [x] Share page interactive demo embed + play/CTA analytics
+- [x] Changelog intake → launch copy assets (`sourceChangelog` + `buildChangelogAssets`)
+- [x] Share analytics: views, plays, CTA clicks (local + Postgres `share_events`)
+- [x] Localize tab persists `localizedLanguages` on brand kit
+- [x] Render queue completion webhook (`POST /api/render-queue/complete`)
+- [x] Trigger.dev worker stub (`workers/render-launch-video.ts`)
+- [x] CI workflow (`.github/workflows/verify.yml`)
+- [x] `.env.example` includes `RENDER_WEBHOOK_SECRET`
+
+**P6 complete.**
+
 Each loop iteration should:
 1. Read this file + `docs/BUILD_LOOP.md`
 2. Implement **one** unchecked task (or fix verify if red)
 3. Mark task done, run `npm run verify`
-4. **Backlog complete (P0–P5)** — ticks should verify green only unless you add new `- [ ]` items
+4. **Backlog complete (P0–P6)** — ticks should verify green only unless you add new `- [ ]` items
