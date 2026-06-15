@@ -1,0 +1,14 @@
+---
+description: LaunchReel feature skills — read orchestrator when building audit, video, copy, PH, share, agent, or cloud features
+alwaysApply: false
+---
+
+# LaunchReel skills
+
+When improving LaunchReel **product quality** (prompts, copy, renders, PH kit, share page):
+
+1. Read `.cursor/skills/launchreel-orchestrator/SKILL.md`
+2. Read the matching feature skill from `docs/SKILLS.md`
+3. For copy/video/PH: also read the relevant skill in `.agents/skills/`
+
+Do not genericize output — match LaunchReel's founder-grade, muted-first, distribution-ready standard.

@@ -29,6 +29,7 @@ Copy `.env.example` → `.env.local` for optional cloud features (Clerk, Postgre
 | **Share** | Public `/share/[id]`, OG meta, demo embed, view/play/CTA analytics (local + Postgres) |
 | **Cloud** | Clerk auth, Postgres sync, S3/R2 backup, Stripe credits, YouTube upload, PH launch prep |
 | **Ops** | GitHub Actions CI, Trigger worker stub, render completion webhook |
+| **AI skills** | 10 LaunchReel feature skills + 9 external pro skills — see `docs/SKILLS.md` |
 
 ## Flow
 
@@ -46,6 +47,7 @@ Copy `.env.example` → `.env.local` for optional cloud features (Clerk, Postgre
 
 | File | Purpose |
 |------|---------|
+| [`docs/SKILLS.md`](docs/SKILLS.md) | **AI skills package** — feature skills + external pro skills |
 | [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md) | **Consolidated reference** — routes, outputs, APIs, modules |
 | [`docs/PHASE10.md`](docs/PHASE10.md) | Cloud setup guide |
 | [`docs/BUILD_LOOP.md`](docs/BUILD_LOOP.md) | Agent build loop |

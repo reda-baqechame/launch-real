@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "skills": {
+    "clerk-nextjs-patterns": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "skillPath": "skills/frameworks/clerk-nextjs-patterns/SKILL.md",
+      "computedHash": "cdcb9f08d567058fca7563ad8c67a4a2a2f3b9f286294e1caeb1ea5407dfebc6"
+    },
+    "copywriting": {
+      "source": "kostja94/marketing-skills",
+      "sourceType": "github",
+      "skillPath": "skills/content/copywriting/SKILL.md",
+      "computedHash": "de2a342b3926cc421f2e1f6bd72b248fd98ca7d17bab96cc8da3d57c24e76613"
+    },
+    "linkedin-posts": {
+      "source": "kostja94/marketing-skills",
+      "sourceType": "github",
+      "skillPath": "skills/platforms/linkedin/SKILL.md",
+      "computedHash": "18543b3ad03f6329e45732ba0c94fa09498986f3a226c5c129269abb2781ada0"
+    },
+    "nextjs-app-router-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend-mobile-development/skills/nextjs-app-router-patterns/SKILL.md",
+      "computedHash": "3a46e9093baecb3a85819529ce05006f817663f48d9e872868c32ae6049c0d5c"
+    },
+    "playwright-best-practices": {
+      "source": "currents-dev/playwright-best-practices-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "6db654e753257e642d6507d59b4fc633a2382e93429748ba0fb6817c23ef5216"
+    },
+    "producthunt": {
+      "source": "dylanfeltus/skills",
+      "sourceType": "github",
+      "skillPath": "producthunt/SKILL.md",
+      "computedHash": "56bca81c5189f7a0ea21199ebe9da20b2aafe35b1af8da8243f46f9bf0c3926e"
+    },
+    "twitter-x-posts": {
+      "source": "kostja94/marketing-skills",
+      "sourceType": "github",
+      "skillPath": "skills/platforms/x/SKILL.md",
+      "computedHash": "d6849c4777cefe3c961309e55d46de3900f1e05cfdfcbddc40ed9d993a1daa55"
+    },
+    "video-marketing": {
+      "source": "kostja94/marketing-skills",
+      "sourceType": "github",
+      "skillPath": "skills/content/video/SKILL.md",
+      "computedHash": "fda313e49d8dc7c2b5c6f9cb9edb7b3364680899c254ba10ca37be0419187788"
+    },
+    "youtube-seo": {
+      "source": "kostja94/marketing-skills",
+      "sourceType": "github",
+      "skillPath": "skills/platforms/youtube/SKILL.md",
+      "computedHash": "509ba5c4db8482cccf2d3dde49c6d77d16dcf3e5422eedec140d01157ffdbaf5"
+    }
+  }
+}
