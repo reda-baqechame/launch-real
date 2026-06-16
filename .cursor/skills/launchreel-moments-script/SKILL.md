@@ -5,7 +5,7 @@ description: Demo moment detection, shot-list scripts, A/B hooks, and quality ju
 
 # Moments + script + judge
 
-Also read: `.agents/skills/video-marketing` for pacing principles.
+Also read: **`launchreel-quality-constitution`**, `.agents/skills/video-marketing`.
 
 ## Code
 
@@ -19,12 +19,16 @@ Also read: `.agents/skills/video-marketing` for pacing principles.
 
 ## Demo Director (moments)
 
+Prompt: `ANALYZE_SYSTEM` in `src/lib/ai-prompts.ts`.
+
 - 3–6 moments, ordered by `wow_score`
 - Roles: Problem setup, Magic moment, Feature reveal, Proof, Payoff, CTA
 - `keepByDefault = true` when `wow_score >= 60`
 - `startSec`/`endSec` must match frame timestamps
 
 ## Script writer
+
+Prompt: `scriptSystem(mode, language)` + `QUALITY_SELF_CHECK`.
 
 - Voiceover lines timed to kept moments
 - Modes: marketing / explainer / tutorial (`outputMode`)
@@ -33,7 +37,8 @@ Also read: `.agents/skills/video-marketing` for pacing principles.
 
 ## Quality judge
 
-- Pass threshold: total >= 75
+Prompt: `JUDGE_SYSTEM` — pass threshold total >= 75.
+
 - Score honestly on hook, clarity, pacing, caption legibility
 - Losing variant still saved as A/B preview blobs
 

@@ -8,6 +8,8 @@ import {
   requireAnthropicKey,
   requireNonEmpty,
 } from "@/lib/api-helpers";
+import { QUALITY_SELF_CHECK, scriptSystem } from "@/lib/ai-prompts";
+
 export const runtime = "nodejs";
 
 const SCRIPT_SCHEMA = {
@@ -55,15 +57,6 @@ const SCRIPT_SCHEMA = {
   required: ["hook", "cta", "lines", "shot_list"],
 } as const;
 
-const MODE_PROMPTS: Record<string, string> = {
-  marketing:
-    "Structure: HOOK (problem) → AGITATE → REVEAL product → PROOF (2-3 moments) → CTA. Fast pace, punchy lines, 30-60s total.",
-  explainer:
-    "Structure: WHAT IT IS → HOW IT WORKS (3 features) → WHO IT'S FOR → CTA. Calm pace, 60-90s total.",
-  tutorial:
-    "Structure: GOAL → numbered STEPS (one per moment) → RECAP. Clear instructional tone, 2-4 min total.",
-};
-
 export async function POST(req: Request) {
   const key = requireAnthropicKey(req);
   if (isNextResponse(key)) return key;
@@ -87,13 +80,12 @@ export async function POST(req: Request) {
   }
 
   const client = new Anthropic({ apiKey: key });
-  const modeGuide = MODE_PROMPTS[body.mode] ?? MODE_PROMPTS.marketing;
 
   try {
     const message = await client.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 8000,
-      system: `You are the LaunchReel script writer. Write voiceover lines timed to demo moments for a software launch video. ${modeGuide} Write natively in ${body.language}. Return ONLY valid JSON.`,
+      system: scriptSystem(body.mode ?? "marketing", body.language ?? "en"),
       output_config: { format: { type: "json_schema", schema: SCRIPT_SCHEMA } },
       messages: [
         {
@@ -104,6 +96,7 @@ export async function POST(req: Request) {
             `Main hook: ${body.hook}`,
             `Moments: ${JSON.stringify(body.moments)}`,
             "Write the script with timed voiceover lines and shot_list mapping momentIds to durations.",
+            QUALITY_SELF_CHECK,
           ].join("\n"),
         },
       ],

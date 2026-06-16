@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 import { mkdir, readFile, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
+import { AGENT_DRIVER_SYSTEM } from "@/lib/ai-prompts";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { sameHostname, validatePublicHttpsUrl } from "@/lib/url-safety-server";
 
@@ -96,7 +97,7 @@ export async function POST(req: Request) {
       const message = await client.messages.create({
         model: "claude-opus-4-8",
         max_tokens: 1000,
-        system: `You drive a browser to demo software for a marketing video. Plan:\n${planText}\nProduct: ${body.contextLine}\nReturn the next action as JSON. Set done=true when the demo is complete.`,
+        system: AGENT_DRIVER_SYSTEM(planText, body.contextLine),
         output_config: { format: { type: "json_schema", schema: ACTION_SCHEMA } },
         messages: [
           {

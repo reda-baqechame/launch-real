@@ -8,6 +8,8 @@ import {
   requireAnthropicKey,
 } from "@/lib/api-helpers";
 
+import { JUDGE_SYSTEM, QUALITY_SELF_CHECK } from "@/lib/ai-prompts";
+
 export const runtime = "nodejs";
 
 const JUDGE_SCHEMA = {
@@ -42,12 +44,12 @@ export async function POST(req: Request) {
     const message = await client.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 2000,
-      system: `Score launch video scripts 0-100 on hook, clarity, pacing, artifacts (caption/UI legibility). total = average. pass = total >= 75. Be honest.`,
+      system: JUDGE_SYSTEM,
       output_config: { format: { type: "json_schema", schema: JUDGE_SCHEMA } },
       messages: [
         {
           role: "user",
-          content: `Score these variants:\n${body.variants.map((v) => `Variant ${v.variant}: ${v.summary}`).join("\n")}`,
+          content: `Score these variants:\n${body.variants.map((v) => `Variant ${v.variant}: ${v.summary}`).join("\n")}\n\n${QUALITY_SELF_CHECK}`,
         },
       ],
     });

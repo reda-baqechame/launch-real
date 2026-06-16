@@ -5,12 +5,12 @@ description: LaunchReel Playwright browser agent for URL-based product capture. 
 
 # Browser agent capture
 
-Also read: `.agents/skills/playwright-best-practices`.
+Also read: **`launchreel-quality-constitution`**, `.agents/skills/playwright-best-practices`.
 
 ## Code
 
-- Agent loop: `src/app/api/agent/route.ts` (max 120s)
-- Plan step: `src/app/api/agent/plan/route.ts`
+- Agent loop: `src/app/api/agent/route.ts` (max 120s) — `AGENT_DRIVER_SYSTEM()`
+- Plan step: `src/app/api/agent/plan/route.ts` — `AGENT_PLAN_SYSTEM`
 - UI: `/new` agent mode with progress + retry
 - Security: `src/lib/url-safety-server.ts` — HTTPS, no private IPs
 

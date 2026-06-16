@@ -8,7 +8,7 @@ import {
   requireAnthropicKey,
 } from "@/lib/api-helpers";
 import { LIMITS } from "@/lib/api-limits";
-export const runtime = "nodejs";
+import { ANALYZE_SYSTEM, QUALITY_SELF_CHECK } from "@/lib/ai-prompts";
 
 const ANALYZE_SCHEMA = {
   type: "object",
@@ -51,15 +51,7 @@ const ANALYZE_SCHEMA = {
   required: ["app_summary", "moments"],
 } as const;
 
-const SYSTEM = `You are Demo Director for LaunchReel. You analyze sampled frames from a software screen recording and identify the strongest demo moments for a launch video.
-
-Rules:
-- Return 3-6 moments ordered by wow_score descending.
-- wow_score 0-100 = how demo-worthy / visually impressive the moment is.
-- keepByDefault = true when wow_score >= 60.
-- Assign story roles: Problem setup, Magic moment, Feature reveal, Proof, Payoff, CTA, etc.
-- startSec/endSec must align with frame timestamps provided.
-- Be specific to what is visible on screen, not generic.`;
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   const key = requireAnthropicKey(req);
@@ -97,6 +89,7 @@ export async function POST(req: Request) {
         body.transcript ? `Transcript anchor:\n${body.transcript}` : null,
         "Frame timestamps (seconds): " + frames.map((f) => f.tSec.toFixed(1)).join(", "),
         "Identify the best moments for a marketing launch video.",
+        QUALITY_SELF_CHECK,
       ]
         .filter(Boolean)
         .join("\n\n"),
@@ -115,7 +108,7 @@ export async function POST(req: Request) {
     const message = await client.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 8000,
-      system: SYSTEM,
+      system: ANALYZE_SYSTEM,
       output_config: { format: { type: "json_schema", schema: ANALYZE_SCHEMA } },
       messages: [{ role: "user", content }],
     });

@@ -9,6 +9,8 @@ import {
   requireNonEmpty,
 } from "@/lib/api-helpers";
 
+import { localizeSystem } from "@/lib/ai-prompts";
+
 export const runtime = "nodejs";
 
 const SCHEMA = {
@@ -47,7 +49,7 @@ export async function POST(req: Request) {
     const message = await client.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 3000,
-      system: `Adapt launch copy for ${locale}. Style: ${body.style || "Native founder voice"}. Not literal translation — adapt idioms, CTA, and angle for the market. Return JSON only.`,
+      system: localizeSystem(locale, body.style || "Native founder voice"),
       output_config: { format: { type: "json_schema", schema: SCHEMA } },
       messages: [
         {

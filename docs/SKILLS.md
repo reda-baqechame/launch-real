@@ -27,6 +27,7 @@ npx skills add clerk/skills --skill clerk-nextjs-patterns -y --agent cursor --co
 | Skill | Feature |
 |-------|---------|
 | `launchreel-orchestrator` | Routes all work — start here |
+| `launchreel-quality-constitution` | Banned phrases, benchmarks, prompt rules |
 | `launchreel-audit` | Launch Doctor audit |
 | `launchreel-moments-script` | Moments, script, judge, TTS |
 | `launchreel-video-render` | Hero video, social clips, GIF |
@@ -56,3 +57,5 @@ Lock file: `skills-lock.json`
 ## Quality standard
 
 All skills enforce LaunchReel's pro bar: **specific** (this product's moments), **muted-first** (social works without sound), **founder-grade** (no hype slop), **distribution-ready** (full kit in one pass).
+
+**Prompt library:** `src/lib/ai-prompts.ts` — single source for all intelligence system prompts (`AUDIT_SYSTEM`, `JUDGE_SYSTEM`, `BANNED_PHRASES`, etc.). Read `launchreel-quality-constitution` before editing prompts.

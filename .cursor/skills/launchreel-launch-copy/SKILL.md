@@ -5,7 +5,7 @@ description: LaunchReel launch copy — X, LinkedIn, PH first comment, voice rew
 
 # Launch copy
 
-Also read: `.agents/skills/copywriting`, `twitter-x-posts`, `linkedin-posts`.
+Also read: **`launchreel-quality-constitution`**, `.agents/skills/copywriting`, `twitter-x-posts`, `linkedin-posts`.
 
 ## Code
 
@@ -40,10 +40,12 @@ When user pastes PRD/changelog at `/new`, `generate.ts` stores `sourceChangelog`
 
 ## Pro copy principles
 
+Prompts: `CAPTIONS_SYSTEM`, `REWRITE_MODE_GUIDES` in `src/lib/ai-prompts.ts`.
+
 - Lead with **outcome**, not features list
 - One idea per sentence
 - CTA names the product action ("Generate your kit free")
-- No: "game-changer", "revolutionary", "synergy"
+- Enforce `BANNED_PHRASES` — see quality constitution
 
 ## Checklist
 

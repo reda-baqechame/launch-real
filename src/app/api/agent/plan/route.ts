@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { handleAnthropicError } from "@/lib/api-helpers";
+import { AGENT_PLAN_SYSTEM } from "@/lib/ai-prompts";
 
 export const runtime = "nodejs";
 
@@ -42,8 +44,7 @@ export async function POST(req: Request) {
     const message = await client.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 4000,
-      system:
-        "Create a demo plan for a browser agent to record a 60s marketing video of a software product. 3-5 steps max. Things to avoid: billing, empty states, login walls unless instructed.",
+      system: AGENT_PLAN_SYSTEM,
       output_config: { format: { type: "json_schema", schema: PLAN_SCHEMA } },
       messages: [
         {
@@ -58,9 +59,6 @@ export async function POST(req: Request) {
     }
     return NextResponse.json(JSON.parse(textBlock.text));
   } catch (err) {
-    if (err instanceof Anthropic.APIError) {
-      return NextResponse.json({ error: err.message }, { status: err.status ?? 502 });
-    }
-    return NextResponse.json({ error: "Plan failed." }, { status: 500 });
+    return handleAnthropicError(err, "Plan failed.");
   }
 }

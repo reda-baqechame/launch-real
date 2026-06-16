@@ -5,12 +5,15 @@ description: Routes LaunchReel work to the right feature skill and quality bar. 
 
 # LaunchReel orchestrator
 
-Read `docs/BUILD_STATUS.md` for architecture. Pick **one** feature skill below and follow it end-to-end before touching code.
+Read `docs/BUILD_STATUS.md` for architecture. Read **`launchreel-quality-constitution`** before any prompt or copy change.
+
+Pick **one** feature skill below and follow it end-to-end before touching code.
 
 ## Feature → skill map
 
 | User intent | Skill | Code entry |
 |-------------|-------|------------|
+| Quality bar, banned phrases, benchmarks | `launchreel-quality-constitution` | `src/lib/ai-prompts.ts` |
 | Launch Doctor audit, score, hooks | `launchreel-audit` | `src/app/api/audit/route.ts`, `/projects/[id]/audit` |
 | Moment detection, shot list | `launchreel-moments-script` | `src/app/api/analyze`, `moment-review.tsx` |
 | Script, judge, TTS, narration | `launchreel-moments-script` | `src/app/api/script`, `judge`, `tts` |
@@ -18,9 +21,19 @@ Read `docs/BUILD_STATUS.md` for architecture. Pick **one** feature skill below a
 | X, LinkedIn, PH comment, rewrite | `launchreel-launch-copy` | `captions`, `rewrite`, `changelog-kit` |
 | PH gallery, poster, launch prep | `launchreel-product-hunt` | `launch-kit-build`, `ph-launch-prep` |
 | Share page, demo, analytics | `launchreel-share-demo` | `share/[id]`, `share-demo-player.tsx` |
-| URL agent, Playwright capture | `launchreel-agent-capture` | `src/app/api/agent` |
+| URL agent, Playwright capture | `launchreel-agent-capture` | `src/app/api/agent`, `agent/plan` |
 | YouTube, cloud, credits | `launchreel-cloud-publish` | `youtube-upload`, `render-queue` |
 | Brand kit, localization | `launchreel-brand-localize` | `/brand`, `localize-tab`, `/api/localize` |
+
+## Prompt library (production)
+
+All intelligence system prompts live in **`src/lib/ai-prompts.ts`**:
+
+- `AUDIT_SYSTEM`, `ANALYZE_SYSTEM`, `scriptSystem()`, `JUDGE_SYSTEM`, `CAPTIONS_SYSTEM`
+- `REWRITE_MODE_GUIDES`, `localizeSystem()`, `AGENT_PLAN_SYSTEM`, `AGENT_DRIVER_SYSTEM()`
+- `BANNED_PHRASES`, `QUALITY_SELF_CHECK`
+
+Do not duplicate these strings in route files.
 
 ## Bundled external skills (`.agents/skills/`)
 
@@ -36,12 +49,12 @@ Use alongside feature skills when writing copy or infra:
 
 Before marking work done:
 
-1. Run `npm run verify`
-2. Match existing patterns in `src/lib/` and `src/components/`
-3. Client-first: works without cloud env vars
-4. No hype slop — specific to the product, founder-grade tone
+1. Read `launchreel-quality-constitution` — pass 5-second stranger test
+2. Run `npm run verify`
+3. Match existing patterns in `src/lib/` and `src/components/`
+4. Client-first: works without cloud env vars
 5. Muted-first: social clips and share video must work without sound
 
 ## Giant benchmark
 
-Beat Loom + Canva + PH launch templates by being **specific** (product moments, not stock), **fast** (one recording → full kit), and **distribution-ready** (copy + clips + share page in one pass).
+Beat Loom + Descript + Canva + top PH launches by being **specific** (this product's UI moments), **fast** (one recording → full kit), and **distribution-ready** (copy + clips + share page in one pass). Generic output is a bug.

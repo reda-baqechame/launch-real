@@ -23,6 +23,7 @@ Also read: `.agents/skills/copywriting` for headline craft.
 
 ## When editing prompts
 
+- Edit **`src/lib/ai-prompts.ts`** (`AUDIT_SYSTEM`, `BANNED_PHRASES`) — not inline in routes
 - Preserve JSON schema constraints (`output_config.format`)
 - Model: `claude-opus-4-8` (match existing routes)
 - BYO key via `x-anthropic-key` header — never log keys

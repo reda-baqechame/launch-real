@@ -8,6 +8,7 @@ import {
   requireAnthropicKey,
   requireNonEmpty,
 } from "@/lib/api-helpers";
+import { REWRITE_MODE_GUIDES } from "@/lib/ai-prompts";
 
 export const runtime = "nodejs";
 
@@ -32,19 +33,14 @@ export async function POST(req: Request) {
   if (isNextResponse(text)) return text;
 
   const mode = body.mode ?? "founder";
-  const modeGuides: Record<string, string> = {
-    founder: "Rewrite in a natural founder voice — first person, specific, no buzzwords.",
-    punchy: "Make it punchier and shorter for social — strong hook, fewer words.",
-    "less-hype": "Remove hype and superlatives. Keep it honest and concrete.",
-    technical: "Make it clearer for a technical audience — precise, no fluff.",
-  };
+  const system = REWRITE_MODE_GUIDES[mode] ?? REWRITE_MODE_GUIDES.founder;
 
   const client = new Anthropic({ apiKey: key });
   try {
     const message = await client.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 2000,
-      system: modeGuides[mode] ?? modeGuides.founder,
+      system,
       output_config: { format: { type: "json_schema", schema: SCHEMA } },
       messages: [{ role: "user", content: text }],
     });

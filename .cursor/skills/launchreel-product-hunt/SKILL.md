@@ -5,7 +5,7 @@ description: Product Hunt launch kit for LaunchReel — gallery video, poster, s
 
 # Product Hunt kit
 
-Also read: `.agents/skills/producthunt`.
+Also read: **`launchreel-quality-constitution`**, `.agents/skills/producthunt`.
 
 ## Code
 
@@ -16,7 +16,9 @@ Also read: `.agents/skills/producthunt`.
 
 ## Gallery order (pro standard)
 
-1. **Gallery video** — autoplay-muted hero 16:9
+Beat Canva templates: every asset references **this product's** demo moments, not stock layouts.
+
+1. **Gallery video** — autoplay-muted hero 16:9; first 3s = PH scroll-stop hook
 2. **Poster** — 1270×760, product name + hook
 3. **5 screenshots** — story arc: problem → magic → proof → CTA
 4. Tagline + description + first comment draft

@@ -8,6 +8,7 @@ import {
   requireAnthropicKey,
   requireNonEmpty,
 } from "@/lib/api-helpers";
+import { CAPTIONS_SYSTEM, QUALITY_SELF_CHECK } from "@/lib/ai-prompts";
 
 export const runtime = "nodejs";
 
@@ -56,9 +57,8 @@ export async function POST(req: Request) {
     const message = await client.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 4000,
-      system:
-        "Write launch copy for a software product. X post under 280chars. LinkedIn 2-3 sentences. PH first comment helpful and engaging. For each social clip id, write a short platform-native caption (under 200chars) that works muted with the clip.",
-      output_config: { format: { type: "json_schema", schema:CAPTIONS_SCHEMA } },
+      system: CAPTIONS_SYSTEM,
+      output_config: { format: { type: "json_schema", schema: CAPTIONS_SCHEMA } },
       messages: [
         {
           role: "user",
@@ -70,6 +70,7 @@ export async function POST(req: Request) {
             body.socialClips?.length ?
               `Social clips:\n${body.socialClips.map((c) => `${c.id} (${c.label}, ${c.platform})`).join("\n")}`
             : null,
+            QUALITY_SELF_CHECK,
           ]
             .filter(Boolean)
             .join("\n"),
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
     });
     const textBlock = message.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") {
-      return jsonError("No captions.", 502);
+      return jsonError("No captions returned.", 502);
     }
     return NextResponse.json(JSON.parse(textBlock.text));
   } catch (err) {

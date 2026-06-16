@@ -9,8 +9,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Skills (read before feature work)
 
 1. Start with `.cursor/skills/launchreel-orchestrator/SKILL.md`
-2. Open the feature skill for your task (audit, video, copy, PH, etc.)
-3. Use bundled external skills in `.agents/skills/` for copy, video, PH, Playwright, Next.js, Clerk
+2. For prompts/copy quality: `.cursor/skills/launchreel-quality-constitution/SKILL.md` + `src/lib/ai-prompts.ts`
+3. Open the feature skill for your task (audit, video, copy, PH, etc.)
+4. Use bundled external skills in `.agents/skills/` for copy, video, PH, Playwright, Next.js, Clerk
 
 Full index: `docs/SKILLS.md`
 
