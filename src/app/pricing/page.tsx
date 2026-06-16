@@ -54,7 +54,7 @@ export default function PricingPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-20">
+      <main id="main-content" className="mx-auto max-w-6xl px-6 py-20">
         <div className="text-center">
           <Eyebrow>Pricing</Eyebrow>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-ink">

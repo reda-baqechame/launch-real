@@ -260,21 +260,27 @@ function NewProjectPageInner({ resumeProject }: { resumeProject: Project | null 
       </p>
 
       <Card className="mt-8 p-6">
-        <label className="text-sm font-medium text-ink">Your app URL</label>
+        <label htmlFor="app-url" className="text-sm font-medium text-ink">Your app URL</label>
         <input
+          id="app-url"
+          name="url"
+          type="url"
+          autoComplete="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://yourapp.com"
           className="mt-2 w-full rounded-lg border border-line bg-base px-4 py-3 text-sm text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-accent/60"
         />
 
-        <p className="mt-6 text-sm font-medium text-ink">Optional — add more signal</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <p id="source-options-label" className="mt-6 text-sm font-medium text-ink">Optional — add more signal</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2" role="group" aria-labelledby="source-options-label">
           {SOURCE_OPTIONS.map((opt) => {
             const on = selected.includes(opt.id);
             return (
               <button
                 key={opt.id}
+                type="button"
+                aria-pressed={on}
                 onClick={() => toggle(opt.id)}
                 className={cn(
                   "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
@@ -322,8 +328,10 @@ function NewProjectPageInner({ resumeProject }: { resumeProject: Project | null 
 
         {selected.includes("prd") && (
           <>
-            <label className="mt-4 block text-sm font-medium text-ink">PRD / changelog</label>
+            <label htmlFor="prd-text" className="mt-4 block text-sm font-medium text-ink">PRD / changelog</label>
             <textarea
+              id="prd-text"
+              name="prd"
               rows={5}
               value={prdText}
               onChange={(e) => setPrdText(e.target.value)}
@@ -337,10 +345,12 @@ function NewProjectPageInner({ resumeProject }: { resumeProject: Project | null 
           <PhDraftIntake onPrefill={handlePhPrefill} />
         )}
 
-        <label className="mt-6 block text-sm font-medium text-ink">
+        <label htmlFor="product-description" className="mt-6 block text-sm font-medium text-ink">
           What does it do, and who is it for?
         </label>
         <textarea
+          id="product-description"
+          name="description"
           rows={3}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -405,6 +415,7 @@ function AiConnect({ connected }: { connected: boolean }) {
               "size-2 rounded-full",
               connected ? "bg-good" : "bg-ink-faint",
             )}
+            aria-hidden
           />
           <p className="text-sm font-medium text-ink">
             {connected ? "Launch Doctor connected to Claude" : "Use real AI (optional)"}
@@ -414,6 +425,7 @@ function AiConnect({ connected }: { connected: boolean }) {
           <button
             onClick={() => clearKey()}
             className="text-xs text-ink-mute hover:text-ink"
+            type="button"
           >
             Disconnect
           </button>
@@ -421,6 +433,8 @@ function AiConnect({ connected }: { connected: boolean }) {
           <button
             onClick={() => setOpen((o) => !o)}
             className="text-xs text-accent-ink hover:text-accent-soft"
+            type="button"
+            aria-expanded={open}
           >
             {open ? "Cancel" : "Connect"}
           </button>
@@ -435,10 +449,13 @@ function AiConnect({ connected }: { connected: boolean }) {
       ) : open ? (
         <div className="mt-3">
           <input
+            id="anthropic-key"
             type="password"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="sk-ant-..."
+            aria-label="Anthropic API key"
+            autoComplete="off"
             className="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-ink outline-none focus:border-accent/60"
           />
           <div className="mt-2 flex items-center justify-between gap-3">
@@ -477,17 +494,22 @@ function TtsConnect({ connected }: { connected: boolean }) {
     <div className="mt-4 rounded-xl border border-line bg-surface-2 p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className={cn("size-2 rounded-full", connected ? "bg-good" : "bg-ink-faint")} />
+          <span className={cn("size-2 rounded-full", connected ? "bg-good" : "bg-ink-faint")} aria-hidden />
           <p className="text-sm font-medium text-ink">
             {connected ? "AI voice connected" : "AI voiceover (optional — shy founder mode)"}
           </p>
         </div>
         {connected ? (
-          <button onClick={() => clearTtsKey()} className="text-xs text-ink-mute hover:text-ink">
+          <button onClick={() => clearTtsKey()} className="text-xs text-ink-mute hover:text-ink" type="button">
             Disconnect
           </button>
         ) : (
-          <button onClick={() => setOpen((o) => !o)} className="text-xs text-accent-ink hover:text-accent-soft">
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="text-xs text-accent-ink hover:text-accent-soft"
+            type="button"
+            aria-expanded={open}
+          >
             {open ? "Cancel" : "Connect"}
           </button>
         )}
@@ -498,7 +520,9 @@ function TtsConnect({ connected }: { connected: boolean }) {
         </p>
       ) : open ? (
         <div className="mt-3 space-y-2">
+          <label htmlFor="tts-provider" className="sr-only">Voice provider</label>
           <select
+            id="tts-provider"
             value={provider}
             onChange={(e) => setProvider(e.target.value as "elevenlabs" | "openai")}
             className="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm"
@@ -507,10 +531,13 @@ function TtsConnect({ connected }: { connected: boolean }) {
             <option value="openai">OpenAI TTS</option>
           </select>
           <input
+            id="tts-key"
             type="password"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={provider === "openai" ? "sk-..." : "xi-..."}
+            aria-label={`${provider === "openai" ? "OpenAI" : "ElevenLabs"} API key`}
+            autoComplete="off"
             className="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm"
           />
           <Button

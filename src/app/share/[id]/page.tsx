@@ -63,7 +63,7 @@ export default function SharePage() {
         </ButtonLink>
       </header>
 
-      <main className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col items-center px-6 pb-16 pt-6 text-center">
+      <main id="main-content" className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col items-center px-6 pb-16 pt-6 text-center">
         <Pill className="mb-6">Launched with LaunchReel</Pill>
         <h1 className="text-4xl font-semibold tracking-tight text-ink">{project.name}</h1>
         <p className="mt-3 max-w-xl text-lg text-ink-soft">{project.oneLiner}</p>

@@ -48,16 +48,21 @@ export function PhDraftIntake({
 
   return (
     <div className="mt-4 rounded-lg border border-line bg-surface-2 p-4">
-      <p className="text-sm font-medium text-ink">Product Hunt draft URL</p>
-      <p className="mt-1 text-xs text-ink-mute">
+      <label htmlFor="ph-draft-url" className="text-sm font-medium text-ink">
+        Product Hunt draft URL
+      </label>
+      <p id="ph-draft-hint" className="mt-1 text-xs text-ink-mute">
         Paste a public Product Hunt product or post link. LaunchReel prefills your
         app URL and description — no OAuth required.
       </p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <input
+          id="ph-draft-url"
+          type="url"
           value={draftUrl}
           onChange={(e) => setDraftUrl(e.target.value)}
           placeholder="https://www.producthunt.com/products/your-product"
+          aria-describedby="ph-draft-hint"
           className="min-w-0 flex-1 rounded-lg border border-line bg-base px-3 py-2 text-sm text-ink outline-none focus:border-accent/60"
         />
         <Button

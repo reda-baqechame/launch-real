@@ -16,7 +16,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="hidden lg:block" />
           <AppHeaderActions />
         </header>
-        <main className="flex-1 px-4 py-8 lg:px-8">{children}</main>
+        <main id="main-content" className="flex-1 px-4 py-8 lg:px-8">{children}</main>
       </div>
     </div>
   );

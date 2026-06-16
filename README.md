@@ -8,12 +8,16 @@ Turn screen recordings, URLs, or screenshots into professional launch videos, Pr
 
 ```bash
 npm install
-npx playwright install chromium   # browser-agent URL capture
-npm run dev                       # http://localhost:3000
-npm run verify                    # build + lint
+npx playwright install chromium   # browser-agent URL capture only
+npm run dev                       # http://localhost:3000 — keep terminal open
+npm run verify                    # build + lint (same as CI)
 ```
 
-Copy `.env.example` → `.env.local` for optional cloud features (Clerk, Postgres, Stripe, S3/R2, OAuth).
+**Local test flow:** open `/new` → connect Anthropic key (optional but recommended) → record or upload → audit → angle → moments → generate → `/result`.
+
+Copy `.env.example` → `.env.local` only for cloud features (Clerk, Postgres, Stripe, S3/R2, OAuth). The app runs fully without it.
+
+**Troubleshooting:** if `localhost:3000` won't load, run `npm run dev` first. If builds fail on OneDrive, stop the dev server and delete `.next`, then `npm run verify` again.
 
 ## What’s built (P0–P6 complete)
 

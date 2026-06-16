@@ -21,11 +21,11 @@ export function Sidebar() {
   const credits = useCredits();
   const creditLabel = credits.enabled ? credits.label : CREDITS.label;
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface/50 px-3 py-5 lg:flex">
+    <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface/50 px-3 py-5 lg:flex" aria-label="Sidebar">
       <Link href="/dashboard" className="px-2 pb-6">
         <Logo />
       </Link>
-      <nav className="flex flex-1 flex-col gap-1">
+      <nav className="flex flex-1 flex-col gap-1" aria-label="App">
         {NAV.map((item) => {
           const active =
             item.href === "/dashboard"

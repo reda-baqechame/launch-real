@@ -33,7 +33,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-40 border-b border-line bg-base/70 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Logo />
-          <nav className="hidden items-center gap-7 text-sm text-ink-mute md:flex">
+          <nav className="hidden items-center gap-7 text-sm text-ink-mute md:flex" aria-label="Primary">
             <a href="#how" className="hover:text-ink">How it works</a>
             <a href="#outputs" className="hover:text-ink">What you get</a>
             <a href="#replaces" className="hover:text-ink">Why it wins</a>
@@ -45,6 +45,7 @@ export default function LandingPage() {
         </div>
       </header>
 
+      <main id="main-content">
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[520px] glow-accent" />
@@ -165,6 +166,8 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-line">

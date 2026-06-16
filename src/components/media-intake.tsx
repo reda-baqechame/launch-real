@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { isImageFile, isVideoFile } from "@/lib/footage-intake";
 
@@ -31,6 +31,7 @@ function DropZone({
   invalidMessage,
 }: DropZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,15 +52,14 @@ function DropZone({
 
   return (
     <div className="mt-4">
-      <p className="text-sm font-medium text-ink">{label}</p>
-      <p className="mt-0.5 text-xs text-ink-mute">{hint}</p>
-      <div
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") inputRef.current?.click();
-        }}
-        onClick={() => inputRef.current?.click()}
+      <label htmlFor={inputId} className="text-sm font-medium text-ink">
+        {label}
+      </label>
+      <p id={`${inputId}-hint`} className="mt-0.5 text-xs text-ink-mute">
+        {hint}
+      </p>
+      <label
+        htmlFor={inputId}
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -71,7 +71,7 @@ function DropZone({
           ingest(e.dataTransfer.files);
         }}
         className={cn(
-          "mt-2 cursor-pointer rounded-xl border border-dashed px-4 py-8 text-center transition-colors",
+          "mt-2 block cursor-pointer rounded-xl border border-dashed px-4 py-8 text-center transition-colors",
           dragging
             ? "border-accent bg-accent/10"
             : "border-line bg-surface-2 hover:border-line-strong",
@@ -79,10 +79,12 @@ function DropZone({
       >
         <input
           ref={inputRef}
+          id={inputId}
           type="file"
           accept={accept}
           multiple={multiple}
-          className="hidden"
+          aria-describedby={`${inputId}-hint`}
+          className="sr-only"
           onChange={(e) => {
             ingest(e.target.files);
             e.target.value = "";
@@ -92,10 +94,12 @@ function DropZone({
           Drop {multiple ? "files" : "a file"} here or click to browse
         </p>
         <p className="mt-1 text-xs text-ink-faint">Stored locally in this browser only</p>
-      </div>
+      </label>
 
       {error && (
-        <p className="mt-2 text-xs text-bad">{error}</p>
+        <p className="mt-2 text-xs text-bad" role="alert">
+          {error}
+        </p>
       )}
 
       {files.length > 0 && (
@@ -109,6 +113,7 @@ function DropZone({
               <span className="shrink-0 text-xs text-ink-mute">{formatBytes(f.size)}</span>
               <button
                 type="button"
+                aria-label={`Remove ${f.name}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onFiles(files.filter((_, j) => j !== i));

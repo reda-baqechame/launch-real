@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ButtonLink } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { useStore } from "@/lib/store";
 import type { StoryAngle } from "@/lib/types";
 
 export function AngleSelector({
@@ -14,17 +15,28 @@ export function AngleSelector({
   angles: StoryAngle[];
   defaultSelected: string;
 }) {
+  const { patchProject } = useStore();
   const [selected, setSelected] = useState(defaultSelected);
   const chosen = angles.find((a) => a.id === selected) ?? angles[0];
 
+  function confirmAngle() {
+    patchProject(projectId, {
+      selectedAngleId: chosen.id,
+      mainHook: chosen.hook,
+    });
+  }
+
   return (
     <>
-      <div className="mt-8 grid gap-3 md:grid-cols-2">
+      <div className="mt-8 grid gap-3 md:grid-cols-2" role="radiogroup" aria-label="Story angle">
         {angles.map((a) => {
           const on = a.id === selected;
           return (
             <button
               key={a.id}
+              type="button"
+              role="radio"
+              aria-checked={on}
               onClick={() => setSelected(a.id)}
               className={cn(
                 "rounded-2xl border p-5 text-left transition-colors",
@@ -42,6 +54,7 @@ export function AngleSelector({
                     "flex size-5 items-center justify-center rounded-full border text-[11px]",
                     on ? "border-accent bg-accent text-white" : "border-line-strong text-transparent",
                   )}
+                  aria-hidden
                 >
                   ✓
                 </span>
@@ -85,7 +98,7 @@ export function AngleSelector({
         <p className="text-sm text-ink-mute">
           This angle is clearer, but you can always regenerate later.
         </p>
-        <ButtonLink href={`/projects/${projectId}/moments`} size="lg">
+        <ButtonLink href={`/projects/${projectId}/moments`} size="lg" onClick={confirmAngle}>
           Use this angle →
         </ButtonLink>
       </div>

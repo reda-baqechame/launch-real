@@ -9,10 +9,10 @@
   --color-line: #232329;
   --color-line-strong: #2e2e36;
 
-  /* Text */
+  /* Text — ink-mute meets WCAG AA 4.5:1 on surface-2 (#16161a) */
   --color-ink: #ededef;
   --color-ink-soft: #b4b4bd;
-  --color-ink-mute: #7b7b86;
+  --color-ink-mute: #858590;
   --color-ink-faint: #56565f;
 
   /* Accent — electric violet, used sparingly */
@@ -95,4 +95,10 @@ h3 {
 }
 .animate-pulse-soft {
   animation: pulse-soft 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-soft {
+    animation: none;
+  }
 }
