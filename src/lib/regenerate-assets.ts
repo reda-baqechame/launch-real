@@ -1,4 +1,5 @@
 import { fetchCaptions, getKey } from "@/lib/ai";
+import { fetchPublicConfig } from "@/lib/public-config-client";
 import { getBlobUrl, saveBlob, socialClipKey } from "@/lib/footage-store";
 import { loadScreenshotUrls } from "@/lib/screenshot-loader";
 import { buildScriptFromMoments } from "@/lib/script-build";
@@ -89,7 +90,8 @@ export async function regenerateSocialClips(
 export async function regenerateLaunchCopy(
   project: Project,
 ): Promise<{ captions: GeneratedCaptions; social: LaunchAsset[]; copy: LaunchAsset[] }> {
-  if (!getKey()) {
+  const cfg = await fetchPublicConfig();
+  if (!cfg.localFree && !cfg.hosted && !getKey()) {
     throw new Error("Connect an Anthropic key on /new to regenerate copy.");
   }
 

@@ -4,10 +4,15 @@ import { isStripeEnabled } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
 import { claimStripeEvent } from "@/lib/db/stripe-events";
 import { addCredits, ensureAppUser } from "@/lib/db/users";
+import { isLocalFreeRequest } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    return NextResponse.json({ received: true, localFree: true });
+  }
+
   if (!isStripeEnabled()) {
     return NextResponse.json({ error: "Stripe not configured." }, { status: 503 });
   }

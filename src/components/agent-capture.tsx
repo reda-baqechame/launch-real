@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button, Card } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { getKey } from "@/lib/ai";
+import { agentJsonHeaders } from "@/lib/ai";
+import { useAiEnabled } from "@/lib/hosted-config";
 import { footageKey, saveBlob } from "@/lib/footage-store";
 import { screenshotsToVideo } from "@/lib/screenshots-to-video";
 import { useStore } from "@/lib/store";
@@ -67,10 +68,11 @@ export function AgentCapturePanel({
     return () => clearInterval(interval);
   }, [phase, captureSteps.length]);
 
+  const aiEnabled = useAiEnabled();
+
   const loadPlan = useCallback(async () => {
-    const key = getKey();
-    if (!key) {
-      setError("Connect an Anthropic key on this page first.");
+    if (!aiEnabled) {
+      setError("Sign in or connect an Anthropic key on this page first.");
       setFailedAt("plan");
       setPhase("error");
       return;
@@ -82,7 +84,7 @@ export function AgentCapturePanel({
     try {
       const res = await fetch("/api/agent/plan", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-anthropic-key": key },
+        headers: await agentJsonHeaders(),
         body: JSON.stringify({ url, contextLine, instructions }),
       });
       if (!res.ok) {
@@ -96,12 +98,11 @@ export function AgentCapturePanel({
       setFailedAt("plan");
       setPhase("error");
     }
-  }, [url, contextLine, instructions]);
+  }, [url, contextLine, instructions, aiEnabled]);
 
   const runCapture = useCallback(async () => {
-    const key = getKey();
-    if (!key) {
-      setError("Connect an Anthropic key on this page first.");
+    if (!aiEnabled) {
+      setError("Sign in or connect an Anthropic key on this page first.");
       setFailedAt("capture");
       setPhase("error");
       return;
@@ -113,7 +114,7 @@ export function AgentCapturePanel({
     try {
       const res = await fetch("/api/agent", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-anthropic-key": key },
+        headers: await agentJsonHeaders(),
         body: JSON.stringify({ url, contextLine, plan, instructions }),
       });
       if (!res.ok) {
@@ -165,7 +166,7 @@ export function AgentCapturePanel({
       setFailedAt("capture");
       setPhase("error");
     }
-  }, [url, contextLine, plan, instructions, createProject, attachFootage, router]);
+  }, [url, contextLine, plan, instructions, createProject, attachFootage, router, aiEnabled]);
 
   if (phase === "idle") {
     return (

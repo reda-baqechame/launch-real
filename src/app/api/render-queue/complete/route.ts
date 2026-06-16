@@ -3,11 +3,16 @@ import { isCloudSyncEnabled, isProduction } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
 import { updateRenderJobStatus } from "@/lib/db/render-jobs";
 import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty } from "@/lib/api-helpers";
+import { isLocalFreeRequest } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
 /** Webhook for Trigger.dev / Lambda to mark render jobs complete. */
 export async function POST(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    return NextResponse.json({ ok: true, jobId: "local_job", status: "done", localFree: true });
+  }
+
   if (!isCloudSyncEnabled()) {
     return jsonError("Render queue requires Postgres + Clerk.", 503);
   }

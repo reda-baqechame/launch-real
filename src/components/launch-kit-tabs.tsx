@@ -24,7 +24,8 @@ import { useCredits } from "@/lib/use-credits";
 import { shouldWatermark } from "@/lib/watermark-policy";
 import { loadScreenshotUrls } from "@/lib/screenshot-loader";
 import { LocalizeTab } from "@/components/localize-tab";
-import { fetchRewrite, getKey } from "@/lib/ai";
+import { fetchRewrite } from "@/lib/ai";
+import { useAiEnabled, usePublicConfig } from "@/lib/hosted-config";
 import { voiceChipToMode } from "@/lib/voice-chip-map";
 import type { LaunchAsset, Project, VideoScript } from "@/lib/types";
 
@@ -56,7 +57,7 @@ function CopyTab({ project }: { project: Project }) {
   const [activeVoice, setActiveVoice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const hasKey = Boolean(getKey());
+  const aiEnabled = useAiEnabled();
   const items = copyItems(project);
 
   function persistCopy(next: LaunchAsset[]) {
@@ -73,8 +74,8 @@ function CopyTab({ project }: { project: Project }) {
   }
 
   async function applyVoice(chip: string) {
-    if (!hasKey) {
-      setError("Connect an Anthropic key on /new to rewrite copy.");
+    if (!aiEnabled) {
+      setError("Sign in or connect an Anthropic key on /new to rewrite copy.");
       return;
     }
     const withBody = items.filter((a) => a.body?.trim());
@@ -111,12 +112,12 @@ function CopyTab({ project }: { project: Project }) {
           options={VOICE_CHIPS}
           active={activeVoice}
           onSelect={(chip) => void applyVoice(chip)}
-          disabled={!hasKey || !items.some((a) => a.body?.trim())}
+          disabled={!aiEnabled || !items.some((a) => a.body?.trim())}
           busy={busy}
         />
-        {!hasKey && (
+        {!aiEnabled && (
           <p className="mt-2 text-xs text-ink-mute">
-            Connect Claude on <Link href="/new" className="text-accent-ink hover:text-accent-soft">/new</Link> to use voice chips.
+            Sign in or connect Claude on <Link href="/new" className="text-accent-ink hover:text-accent-soft">/new</Link> to use voice chips.
           </p>
         )}
         {error && <p className="mt-2 text-xs text-bad">{error}</p>}
@@ -355,7 +356,8 @@ function defaultScript(project: Project): VideoScript {
 function VideoTab({ project }: { project: Project }) {
   const { attachRenders } = useStore();
   const credits = useCredits();
-  const applyWatermark = shouldWatermark(credits);
+  const publicConfig = usePublicConfig();
+  const applyWatermark = publicConfig?.localFree ? false : shouldWatermark(credits);
   const { url: footageUrl, loading } = useFootageUrl(project.footage);
   const { items: renderItems, loading: rendersLoading } = useProjectRenders(project.renders);
   const [imageUrls, setImageUrls] = useState<string[]>([]);

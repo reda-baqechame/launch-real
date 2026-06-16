@@ -8,10 +8,18 @@ import { getProject } from "@/lib/db/projects";
 import { createRenderJob, getRenderJob, listRenderJobs } from "@/lib/db/render-jobs";
 import { addCredits, ensureAppUser, consumeCredit, getAppUser } from "@/lib/db/users";
 import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty } from "@/lib/api-helpers";
+import { isLocalFreeRequest, localFreeRenderJob } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    const body = await parseJsonBody<{ projectId?: string }>(req);
+    if (isNextResponse(body)) return body;
+    const job = localFreeRenderJob(body.projectId || "local-project");
+    return NextResponse.json({ job, triggerDispatched: true, localFree: true });
+  }
+
   if (!isCloudSyncEnabled()) {
     return jsonError("Render queue requires Postgres + Clerk.", 503);
   }
@@ -84,6 +92,12 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    const jobId = new URL(req.url).searchParams.get("jobId");
+    const job = localFreeRenderJob("local-project");
+    return NextResponse.json(jobId ? { job: { ...job, id: jobId } } : { jobs: [job] });
+  }
+
   if (!isCloudSyncEnabled()) {
     return jsonError("Render queue requires Postgres + Clerk.", 503);
   }

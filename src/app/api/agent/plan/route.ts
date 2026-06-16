@@ -1,7 +1,9 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
-import { handleAnthropicError } from "@/lib/api-helpers";
+import { handleAnthropicError, isNextResponse } from "@/lib/api-helpers";
 import { AGENT_PLAN_SYSTEM } from "@/lib/ai-prompts";
+import { resolveAnthropicKey } from "@/lib/server-keys";
+import { isLocalFreeRequest, localFreeAgentPlan } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
@@ -27,10 +29,12 @@ const PLAN_SCHEMA = {
 } as const;
 
 export async function POST(req: Request) {
-  const key = req.headers.get("x-anthropic-key");
-  if (!key) {
-    return NextResponse.json({ error: "No Anthropic key." }, { status: 400 });
+  if (isLocalFreeRequest(req)) {
+    return NextResponse.json(localFreeAgentPlan());
   }
+
+  const key = await resolveAnthropicKey(req);
+  if (isNextResponse(key)) return key;
 
   let body: { url: string; contextLine: string; instructions?: string };
   try {

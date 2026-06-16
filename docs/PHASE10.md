@@ -22,7 +22,25 @@ LaunchReel stays **client-first** without env vars. Enable cloud features by cop
 3. Webhook: `stripe listen --forward-to localhost:3000/api/stripe/webhook`
 4. `/pricing` checkout adds credits on `checkout.session.completed`.
 
-Credits are stored on `app_users.credits` and consumed when enqueueing cloud renders.
+Credits are stored on `app_users.credits` and consumed when:
+
+- Enqueueing cloud renders (`POST /api/render-queue`)
+- Starting full launch kit generation in hosted SaaS mode (`POST /api/credits/consume`)
+
+## Hosted SaaS mode
+
+When Clerk + Postgres + `ANTHROPIC_API_KEY` are configured, the app runs in **hosted mode**:
+
+- Server uses your API keys; BYO-key UI on `/new` is hidden
+- All AI routes require Clerk sign-in
+- Kit generation deducts one credit after a launch kit is successfully generated
+- Public flag: `GET /api/public-config` → `{ hosted: true, … }`
+
+Full deploy guide: [`docs/DEPLOY.md`](DEPLOY.md)
+
+## Local free test mode
+
+Set `LAUNCHREEL_LOCAL_FREE_MODE=true` while running on `localhost` to test all hosted-style flows without paid providers. This mode returns `"localFree": true` from `GET /api/public-config`, gives unlimited local test credits, removes watermarks, and uses deterministic local providers for AI, voice, checkout, render, OAuth, YouTube, and Product Hunt. It is blocked when `NODE_ENV=production` or when the request host is not localhost/127.0.0.1.
 
 ## 3. Trigger.dev render queue
 
@@ -58,6 +76,8 @@ Set `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`. For Cloudflare R2
 | `GET/POST /api/projects` | List / upsert synced projects |
 | `GET/PUT/DELETE /api/projects/[id]` | Single project CRUD |
 | `GET /api/user/credits` | Credit balance |
+| `POST /api/credits/consume` | Deduct one kit credit (hosted SaaS) |
+| `GET /api/public-config` | Hosted vs BYO mode flags |
 | `POST /api/stripe/checkout` | Stripe Checkout session |
 | `POST /api/stripe/webhook` | Credit fulfillment |
 | `POST /api/render-queue` | Enqueue cloud render |

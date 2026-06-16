@@ -13,6 +13,7 @@ import {
   slugToProductName,
   type PhDraftPrefill,
 } from "@/lib/ph-intake";
+import { isLocalFreeRequest } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,16 @@ export async function POST(req: Request) {
 
   const parsed = parseProductHuntUrl(rawUrl);
   if (!parsed.ok) return jsonError(parsed.error, 400);
+
+  if (isLocalFreeRequest(req)) {
+    return NextResponse.json({
+      phUrl: parsed.phUrl,
+      productUrl: "http://localhost:3000",
+      name: slugToProductName(parsed.slug),
+      tagline: "Launch-ready in minutes",
+      warning: "Local free mode used deterministic Product Hunt draft data.",
+    } satisfies PhDraftPrefill & { warning?: string });
+  }
 
   try {
     const res = await fetch(parsed.phUrl, {

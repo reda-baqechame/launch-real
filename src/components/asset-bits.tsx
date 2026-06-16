@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { downloadDataUrl, isImageDataUrl } from "@/lib/download-utils";
-import { fetchRewrite, getKey, type RewriteMode } from "@/lib/ai";
+import { fetchRewrite, type RewriteMode } from "@/lib/ai";
+import { useAiEnabled } from "@/lib/hosted-config";
 import type { LaunchAsset } from "@/lib/types";
 
 export function CopyButton({ text, className }: { text: string; className?: string }) {
@@ -93,8 +94,10 @@ export function CopyAsset({
   const [body, setBody] = useState(asset.body ?? "");
   const [busy, setBusy] = useState(false);
 
+  const aiEnabled = useAiEnabled();
+
   async function rewrite(mode: RewriteMode) {
-    if (!body || !getKey()) return;
+    if (!body || !aiEnabled) return;
     setBusy(true);
     try {
       const text = await fetchRewrite(body, mode);
@@ -120,7 +123,7 @@ export function CopyAsset({
       )}
       <div className="mt-3 flex flex-wrap gap-1.5">
         {body && <CopyButton text={body} />}
-        {body && getKey() && (
+        {body && aiEnabled && (
           <>
             <button
               disabled={busy}

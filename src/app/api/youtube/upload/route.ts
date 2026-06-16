@@ -8,11 +8,27 @@ import { getOAuthConnection } from "@/lib/db/oauth";
 import { getProject } from "@/lib/db/projects";
 import { resolvePublishVideo } from "@/lib/resolve-publish-video";
 import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty, safeClientError } from "@/lib/api-helpers";
+import { isLocalFreeRequest } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
 /** Upload a rendered video to YouTube (requires OAuth connection). */
 export async function POST(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    const body = await parseJsonBody<{ projectId?: string; title?: string; privacyStatus?: string }>(req);
+    if (isNextResponse(body)) return body;
+    return NextResponse.json({
+      ok: true,
+      status: "uploaded",
+      localFree: true,
+      message: `Local free YouTube upload prepared (${body.privacyStatus ?? "unlisted"}).`,
+      videoId: "local-free-youtube-video",
+      url: "https://youtube.com/watch?v=local-free-youtube-video",
+      projectId: body.projectId ?? "local-project",
+      title: body.title ?? "Local free launch video",
+    });
+  }
+
   if (!isYouTubeOAuthEnabled()) {
     return jsonError("YouTube OAuth is not configured.", 503);
   }

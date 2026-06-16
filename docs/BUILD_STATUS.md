@@ -80,7 +80,7 @@ Every successful **Generate** from Moments produces:
 
 ### P2 — Phase 10 cloud (optional env)
 
-- Clerk auth + middleware
+- Clerk auth + Next.js proxy
 - Postgres project sync (`/api/projects`, auto-migrate from `db/schema.sql`)
 - Stripe credits + checkout + webhook
 - Trigger.dev render queue stub
@@ -230,6 +230,8 @@ Docs: `docs/BUILD_LOOP.md`
 
 Required production env: `RENDER_WEBHOOK_SECRET`, `OAUTH_STATE_SECRET` (or `CLERK_SECRET_KEY`), `NEXT_PUBLIC_APP_URL`.
 
+**Local free test mode:** set `LAUNCHREEL_LOCAL_FREE_MODE=true` on localhost to use deterministic local AI, TTS, transcription, checkout, credits, render, OAuth, YouTube, and Product Hunt providers. This is blocked in production and is not a replacement for live provider smoke tests.
+
 ---
 
 ## Platform limits (not code gaps)
@@ -239,7 +241,7 @@ Required production env: `RENDER_WEBHOOK_SECRET`, `OAUTH_STATE_SECRET` (or `CLER
 | Product Hunt post creation | PH API does not expose create-post |
 | Remotion on Lambda | Requires your Remotion project + serve URL deploy |
 | Trigger.dev production render | Stub marks jobs complete — wire real render pipeline |
-| Next.js middleware warning | `middleware` → `proxy` migration deferred; app works |
+| Live provider proof | Local free mode proves app wiring; real hosted deploy still needs Clerk/Stripe/AI/OAuth credentials |
 
 ---
 

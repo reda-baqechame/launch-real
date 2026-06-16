@@ -5,6 +5,7 @@ import { appBaseUrl, isStripeEnabled } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
 import { ensureAppUser, setStripeCustomerId } from "@/lib/db/users";
 import { isNextResponse, jsonError, parseJsonBody } from "@/lib/api-helpers";
+import { isLocalFreeRequest, localFreeCheckoutUrl } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
@@ -32,6 +33,10 @@ function stripeClient(): Stripe | null {
 }
 
 export async function POST(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    return NextResponse.json({ url: localFreeCheckoutUrl(req), localFree: true });
+  }
+
   const stripe = stripeClient();
   if (!stripe) return jsonError("Stripe is not configured.", 503);
 

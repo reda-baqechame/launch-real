@@ -12,10 +12,28 @@ import {
 import { withDb } from "@/lib/db/client";
 import { listOAuthConnections } from "@/lib/db/oauth";
 import { isNextResponse } from "@/lib/api-helpers";
+import { isLocalFreeRequest } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    return NextResponse.json({
+      cloudSync: true,
+      blobStorage: true,
+      stripe: true,
+      trigger: true,
+      remotionLambda: true,
+      youtubeOAuth: true,
+      productHuntOAuth: true,
+      localFree: true,
+      connections: [
+        { provider: "youtube", connected: true, expiresAt: null, metadata: { localFree: true } },
+        { provider: "producthunt", connected: true, expiresAt: null, metadata: { localFree: true } },
+      ],
+    });
+  }
+
   const userId = await requireAuthUserId();
   if (isNextResponse(userId)) return userId;
 

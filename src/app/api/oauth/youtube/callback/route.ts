@@ -3,10 +3,15 @@ import { verifyOAuthState } from "@/lib/oauth-state";
 import { appBaseUrl, isYouTubeOAuthEnabled } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
 import { upsertOAuthConnection } from "@/lib/db/oauth";
+import { isLocalFreeRequest } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
 export async function GET(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    return NextResponse.redirect(new URL("/settings?oauth=youtube_connected&localFree=1", req.url));
+  }
+
   if (!isYouTubeOAuthEnabled()) {
     return NextResponse.redirect(`${appBaseUrl()}/settings?oauth=youtube_unconfigured`);
   }

@@ -5,10 +5,11 @@ import {
   isNextResponse,
   jsonError,
   parseJsonBody,
-  requireAnthropicKey,
   requireNonEmpty,
 } from "@/lib/api-helpers";
+import { resolveAnthropicKey } from "@/lib/server-keys";
 import { REWRITE_MODE_GUIDES } from "@/lib/ai-prompts";
+import { isLocalFreeRequest, localFreeRewrite } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
@@ -20,7 +21,13 @@ const SCHEMA = {
 } as const;
 
 export async function POST(req: Request) {
-  const key = requireAnthropicKey(req);
+  if (isLocalFreeRequest(req)) {
+    const body = await parseJsonBody<{ text?: string; mode?: string }>(req);
+    if (isNextResponse(body)) return body;
+    return NextResponse.json(localFreeRewrite(body));
+  }
+
+  const key = await resolveAnthropicKey(req);
   if (isNextResponse(key)) return key;
 
   const body = await parseJsonBody<{

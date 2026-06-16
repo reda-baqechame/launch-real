@@ -17,6 +17,10 @@ npm run verify                    # build + lint (same as CI)
 
 Copy `.env.example` → `.env.local` only for cloud features (Clerk, Postgres, Stripe, S3/R2, OAuth). The app runs fully without it.
 
+**100% free local test mode:** set `LAUNCHREEL_LOCAL_FREE_MODE=true` in `.env.local`, run `npm run dev`, and open `http://localhost:3000/new`. On localhost only, LaunchReel uses deterministic local AI, voice, credits, checkout, render, OAuth, YouTube, and Product Hunt providers so every workflow can be tested without paid keys.
+
+**Deploy online (hosted SaaS):** see [`docs/DEPLOY.md`](docs/DEPLOY.md) — set your Anthropic/OpenAI keys on the server, Clerk auth, Postgres, and Stripe. Users sign in and buy kit credits; BYO-key UI is hidden automatically.
+
 **Troubleshooting:** if `localhost:3000` won't load, run `npm run dev` first. If builds fail on OneDrive, stop the dev server and delete `.next`, then `npm run verify` again.
 
 ## What’s built (P0–P6 complete)
@@ -44,8 +48,10 @@ Copy `.env.example` → `.env.local` only for cloud features (Clerk, Postgres, S
 ## Architecture
 
 - **Default:** localStorage (metadata) + IndexedDB (blobs) — no backend required
-- **Optional Phase 10:** Clerk, Postgres, Stripe, Trigger.dev, S3/R2, OAuth — see `docs/PHASE10.md`
-- **BYO keys:** Anthropic (AI), OpenAI (Whisper + TTS) or ElevenLabs (TTS)
+- **Local free test:** `LAUNCHREEL_LOCAL_FREE_MODE=true` on localhost only, no paid providers required
+- **Hosted SaaS:** Clerk + Postgres + server `ANTHROPIC_API_KEY` + Stripe — see `docs/DEPLOY.md`
+- **Optional Phase 10:** cloud sync, S3/R2, Trigger.dev, OAuth — see `docs/PHASE10.md`
+- **Local BYO keys:** Anthropic (AI), OpenAI (Whisper + TTS) or ElevenLabs (TTS) — hidden when hosted
 
 ## Docs
 
@@ -53,6 +59,7 @@ Copy `.env.example` → `.env.local` only for cloud features (Clerk, Postgres, S
 |------|---------|
 | [`docs/SKILLS.md`](docs/SKILLS.md) | **AI skills package** — feature skills + external pro skills |
 | [`docs/BUILD_STATUS.md`](docs/BUILD_STATUS.md) | **Consolidated reference** — routes, outputs, APIs, modules |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | **Hosted SaaS deploy** — Vercel, env vars, Stripe, credits |
 | [`docs/PHASE10.md`](docs/PHASE10.md) | Cloud setup guide |
 | [`docs/BUILD_LOOP.md`](docs/BUILD_LOOP.md) | Agent build loop |
 | [`BUILD_BACKLOG.md`](BUILD_BACKLOG.md) | Checkbox backlog (P0–P6 complete) |

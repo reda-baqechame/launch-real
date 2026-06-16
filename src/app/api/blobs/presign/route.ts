@@ -5,10 +5,25 @@ import { isBlobStorageEnabled, isCloudSyncEnabled } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
 import { getProject } from "@/lib/db/projects";
 import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty, safeClientError } from "@/lib/api-helpers";
+import { isLocalFreeRequest, LOCAL_FREE_USER_ID } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    const body = await parseJsonBody<{ projectId?: string; blobKey?: string }>(req);
+    if (isNextResponse(body)) return body;
+    const projectId = body.projectId || "local-project";
+    const blobKey = body.blobKey || "local-blob";
+    const objectKey = `local-free/${LOCAL_FREE_USER_ID}/${projectId}/${blobKey}`;
+    return NextResponse.json({
+      uploadUrl: new URL("/api/blobs/local-free-upload", req.url).toString(),
+      objectKey,
+      publicUrl: new URL(`/local-free/${encodeURIComponent(blobKey)}`, req.url).toString(),
+      localFree: true,
+    });
+  }
+
   if (!isBlobStorageEnabled()) {
     return jsonError("Blob storage is not configured (S3/R2).", 503);
   }

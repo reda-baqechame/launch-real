@@ -5,8 +5,9 @@ import {
   isNextResponse,
   jsonError,
   parseJsonBody,
-  requireAnthropicKey,
 } from "@/lib/api-helpers";
+import { resolveAnthropicKey } from "@/lib/server-keys";
+import { isLocalFreeRequest, localFreeJudge } from "@/lib/local-free";
 
 import { JUDGE_SYSTEM, QUALITY_SELF_CHECK } from "@/lib/ai-prompts";
 
@@ -29,7 +30,11 @@ const JUDGE_SCHEMA = {
 } as const;
 
 export async function POST(req: Request) {
-  const key = requireAnthropicKey(req);
+  if (isLocalFreeRequest(req)) {
+    return NextResponse.json(localFreeJudge());
+  }
+
+  const key = await resolveAnthropicKey(req);
   if (isNextResponse(key)) return key;
 
   const body = await parseJsonBody<{ variants: { variant: number; summary: string }[] }>(req);

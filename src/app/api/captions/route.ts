@@ -5,10 +5,11 @@ import {
   isNextResponse,
   jsonError,
   parseJsonBody,
-  requireAnthropicKey,
   requireNonEmpty,
 } from "@/lib/api-helpers";
+import { resolveAnthropicKey } from "@/lib/server-keys";
 import { CAPTIONS_SYSTEM, QUALITY_SELF_CHECK } from "@/lib/ai-prompts";
+import { isLocalFreeRequest, localFreeCaptions } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
@@ -36,7 +37,17 @@ const CAPTIONS_SCHEMA = {
 } as const;
 
 export async function POST(req: Request) {
-  const key = requireAnthropicKey(req);
+  if (isLocalFreeRequest(req)) {
+    const body = await parseJsonBody<{
+      productName?: string;
+      script?: { hook?: string; cta?: string };
+      socialClips?: { id: string; label: string; platform: string }[];
+    }>(req);
+    if (isNextResponse(body)) return body;
+    return NextResponse.json(localFreeCaptions(body));
+  }
+
+  const key = await resolveAnthropicKey(req);
   if (isNextResponse(key)) return key;
 
   const body = await parseJsonBody<{

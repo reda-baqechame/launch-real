@@ -12,10 +12,10 @@ import {
   fetchScript,
   fetchTranscript,
   fetchTts,
-  getKey,
   getTtsKey,
   getTtsProvider,
 } from "@/lib/ai";
+import { consumeKitCredit, useAiEnabled, usePublicConfig, useTtsEnabled } from "@/lib/hosted-config";
 import { formatTimecode, grabFrame } from "@/lib/director";
 import { buildChangelogAssets } from "@/lib/changelog-kit";
 import { getBlob, getBlobUrl, narrationKey, renderKey, saveBlob, saveRender, socialClipKey, teaserGifKey, variantCutKey, variantRenderKey } from "@/lib/footage-store";
@@ -55,12 +55,12 @@ const GEN_STEPS = [
   "Writing launch copy…",
 ];
 
-function screenshotMomentsIfNeeded(project: Project): DemoMoment[] | null {
+function screenshotMomentsIfNeeded(project: Project, aiEnabled: boolean): DemoMoment[] | null {
   if (
     project.footage?.kind === "screenshots" &&
     project.footage.screenshotKeys?.length &&
     project.moments.every((m) => !m.thumbDataUrl) &&
-    !getKey()
+    !aiEnabled
   ) {
     return momentsFromScreenshots(project.footage.screenshotKeys);
   }
@@ -79,7 +79,12 @@ export function MomentReview({ project }: { project: Project }) {
     patchProject,
   } = useStore();
 
-  const ssInit = screenshotMomentsIfNeeded(project);
+  const credits = useCredits();
+  const aiEnabled = useAiEnabled();
+  const ttsEnabled = useTtsEnabled();
+  const publicConfig = usePublicConfig();
+
+  const ssInit = screenshotMomentsIfNeeded(project, aiEnabled);
   const [moments, setMoments] = useState<DemoMoment[]>(ssInit ?? project.moments);
   const [kept, setKept] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
@@ -93,10 +98,9 @@ export function MomentReview({ project }: { project: Project }) {
   const [step, setStep] = useState(0);
   const analysisStarted = useRef(false);
   const [appSummary, setAppSummary] = useState(project.oneLiner);
-  const credits = useCredits();
 
   const runAnalysis = useCallback(async () => {
-    if (!project.footage?.blobKey || !getKey()) return;
+    if (!project.footage?.blobKey || !aiEnabled) return;
     setAnalyzing(true);
     setAnalyzeError(null);
     try {
@@ -124,7 +128,12 @@ export function MomentReview({ project }: { project: Project }) {
       }
 
       let transcript: string | undefined;
-      if (project.footage.hasAudio && getTtsKey() && getTtsProvider() === "openai") {
+      if (
+        project.footage.hasAudio &&
+        (publicConfig?.localFree ||
+          publicConfig?.serverTranscribe ||
+          (getTtsKey() && getTtsProvider() === "openai"))
+      ) {
         try {
           const blob = await getBlob(project.footage.blobKey, "footage");
           if (blob) transcript = await fetchTranscript(blob);
@@ -150,7 +159,7 @@ export function MomentReview({ project }: { project: Project }) {
     } finally {
       setAnalyzing(false);
     }
-  }, [project, attachMoments]);
+  }, [project, attachMoments, aiEnabled, publicConfig]);
 
   const attachedScreenshotMoments = useRef(false);
   useEffect(() => {
@@ -162,7 +171,7 @@ export function MomentReview({ project }: { project: Project }) {
   useEffect(() => {
     if (
       project.footage?.blobKey &&
-      getKey() &&
+      aiEnabled &&
       project.moments.every((m) => !m.thumbDataUrl) &&
       !analyzing &&
       !analysisStarted.current
@@ -170,7 +179,7 @@ export function MomentReview({ project }: { project: Project }) {
       analysisStarted.current = true;
       void runAnalysis();
     }
-  }, [project.footage?.blobKey, project.moments, runAnalysis, analyzing]);
+  }, [project.footage?.blobKey, project.moments, runAnalysis, analyzing, aiEnabled]);
 
   const keptCount = Object.values(kept).filter(Boolean).length;
 
@@ -189,7 +198,11 @@ export function MomentReview({ project }: { project: Project }) {
     setStep(0);
 
     try {
-      const applyWatermark = shouldWatermark(credits);
+      if (publicConfig?.hosted && credits.enabled && (credits.credits ?? 0) <= 0) {
+        throw new Error("No kit credits remaining. Upgrade on /pricing.");
+      }
+
+      const applyWatermark = publicConfig?.localFree ? false : shouldWatermark(credits);
       const footageUrl = await getBlobUrl(project.footage.blobKey, "footage");
       if (!footageUrl) throw new Error("Footage missing.");
 
@@ -209,7 +222,7 @@ export function MomentReview({ project }: { project: Project }) {
 
       let script = project.script;
 
-      if (getKey()) {
+      if (aiEnabled) {
         setStep(0);
         const altAngle = project.angles.find((a) => a.id !== project.selectedAngleId);
         const altHook = altAngle?.hook ?? project.audit.recommendedHook;
@@ -300,7 +313,7 @@ export function MomentReview({ project }: { project: Project }) {
 
       setStep(3);
       let narrationUrl: string | null = null;
-      if (getTtsKey() && script.lines.length > 0) {
+      if (ttsEnabled && script.lines.length > 0) {
         const blobs: Blob[] = [];
         for (const line of script.lines) {
           blobs.push(await fetchTts(line.text, project.language ?? "en"));
@@ -471,7 +484,7 @@ export function MomentReview({ project }: { project: Project }) {
 
       setStep(6);
       let copyAssets: LaunchAsset[] = project.assets.copy;
-      if (getKey()) {
+      if (aiEnabled) {
         try {
           const captions = await fetchCaptions(
             script!,
@@ -504,6 +517,10 @@ export function MomentReview({ project }: { project: Project }) {
           ...buildChangelogAssets(project.sourceChangelog, project.name),
         ];
         attachAssets(project.id, { copy: copyAssets });
+      }
+
+      if (aiEnabled && publicConfig?.hosted) {
+        await consumeKitCredit();
       }
 
       URL.revokeObjectURL(footageUrl);
@@ -574,19 +591,21 @@ export function MomentReview({ project }: { project: Project }) {
         </p>
       )}
 
-      {project.footage && !getKey() && (
+      {project.footage && !aiEnabled && (
         <p className="mt-4 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-mute">
           Connect an Anthropic key on /new to auto-detect moments from your recording. Using template moments for now.
         </p>
       )}
 
-      {project.footage?.hasAudio && getTtsProvider() !== "openai" && (
+      {project.footage?.hasAudio && !ttsEnabled && (
         <p className="mt-4 rounded-lg border border-line bg-surface-2 px-3 py-2 text-xs text-ink-mute">
-          Connect OpenAI TTS on /new to transcribe narrated recordings before moment detection.
+          {publicConfig?.hosted
+            ? "Narrated recordings need OpenAI configured on the server for transcription."
+            : "Connect OpenAI TTS on /new to transcribe narrated recordings before moment detection."}
         </p>
       )}
 
-      {project.footage && getKey() && (
+      {project.footage && aiEnabled && (
         <div className="mt-4">
           <Button variant="secondary" size="sm" onClick={() => void runAnalysis()}>
             Re-analyze footage

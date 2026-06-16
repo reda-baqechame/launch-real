@@ -5,9 +5,10 @@ import {
   isNextResponse,
   jsonError,
   parseJsonBody,
-  requireAnthropicKey,
 } from "@/lib/api-helpers";
+import { resolveAnthropicKey } from "@/lib/server-keys";
 import { AUDIT_SYSTEM, QUALITY_SELF_CHECK } from "@/lib/ai-prompts";
+import { isLocalFreeRequest, localFreeAudit } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
@@ -71,7 +72,13 @@ function userPrompt(url?: string, description?: string, audience?: string): stri
 }
 
 export async function POST(req: Request) {
-  const key = requireAnthropicKey(req);
+  if (isLocalFreeRequest(req)) {
+    const body = await parseJsonBody<{ url?: string; description?: string; audience?: string }>(req);
+    if (isNextResponse(body)) return body;
+    return NextResponse.json(localFreeAudit(body));
+  }
+
+  const key = await resolveAnthropicKey(req);
   if (isNextResponse(key)) return key;
 
   const body = await parseJsonBody<{ url?: string; description?: string; audience?: string }>(req);

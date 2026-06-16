@@ -1,4 +1,5 @@
 /** Phase 10 feature flags — all cloud features degrade gracefully when unset. */
+import { isLocalFreeEnvEnabled } from "@/lib/local-free";
 
 export function isClerkEnabled(): boolean {
   return Boolean(
@@ -56,4 +57,25 @@ export function appBaseUrl(): string {
 
 export function isProduction(): boolean {
   return process.env.NODE_ENV === "production";
+}
+
+export function isLocalFreeRuntimeEnabled(): boolean {
+  return !isProduction() && isLocalFreeEnvEnabled();
+}
+
+export function isServerAnthropicEnabled(): boolean {
+  return Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+}
+
+export function isServerOpenAiEnabled(): boolean {
+  return Boolean(process.env.OPENAI_API_KEY?.trim());
+}
+
+export function isServerElevenLabsEnabled(): boolean {
+  return Boolean(process.env.ELEVENLABS_API_KEY?.trim());
+}
+
+/** Hosted SaaS: you own API keys; users sign in and pay via Stripe credits. */
+export function isHostedSaas(): boolean {
+  return isProduction() && isCloudSyncEnabled();
 }

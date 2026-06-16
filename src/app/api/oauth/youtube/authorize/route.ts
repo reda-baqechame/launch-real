@@ -3,10 +3,15 @@ import { requireAuthUserId } from "@/lib/auth";
 import { createOAuthState } from "@/lib/oauth-state";
 import { appBaseUrl, isYouTubeOAuthEnabled } from "@/lib/cloud/config";
 import { isNextResponse, jsonError } from "@/lib/api-helpers";
+import { isLocalFreeRequest } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    return NextResponse.redirect(new URL("/settings?oauth=youtube_connected&localFree=1", req.url));
+  }
+
   if (!isYouTubeOAuthEnabled()) {
     return jsonError("YouTube OAuth is not configured.", 503);
   }

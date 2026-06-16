@@ -5,10 +5,24 @@ import { isCloudSyncEnabled, isRemotionLambdaEnabled } from "@/lib/cloud/config"
 import { withDb } from "@/lib/db/client";
 import { getProject } from "@/lib/db/projects";
 import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty } from "@/lib/api-helpers";
+import { isLocalFreeRequest } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    const body = await parseJsonBody<{ projectId?: string; compositionId?: string }>(req);
+    if (isNextResponse(body)) return body;
+    return NextResponse.json({
+      ok: true,
+      localFree: true,
+      projectId: body.projectId ?? "local-project",
+      compositionId: body.compositionId ?? "LaunchVideo",
+      renderId: "local-free-render",
+      status: "done",
+    });
+  }
+
   if (!isCloudSyncEnabled()) {
     return jsonError("Cloud sync requires Postgres + Clerk.", 503);
   }

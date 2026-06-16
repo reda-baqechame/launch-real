@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, Suspense } from "react";
 import { Button, Card, Eyebrow } from "@/components/ui";
+import { HostedAiBanner } from "@/components/hosted-ai-banner";
 import { cn } from "@/lib/cn";
 import { useStore } from "@/lib/store";
 import { AgentCapturePanel } from "@/components/agent-capture";
 import { MediaIntake } from "@/components/media-intake";
 import { PhDraftIntake } from "@/components/ph-draft-intake";
 import { clearKey, clearTtsKey, fetchAudit, setKey, setTtsKey, useAnthropicKey, useTtsKey } from "@/lib/ai";
+import { usePublicConfig, useAiEnabled } from "@/lib/hosted-config";
 import { saveRecordingFootage, saveScreenshotFootage } from "@/lib/footage-intake";
 import { buildRecordReturnUrl } from "@/lib/record-return";
 import type { PhDraftPrefill } from "@/lib/ph-intake";
@@ -70,6 +72,8 @@ function NewProjectPageInner({ resumeProject }: { resumeProject: Project | null 
   const { createProject, attachFootage, patchProject, getProject } = useStore();
   const aiKey = useAnthropicKey();
   const ttsKey = useTtsKey();
+  const publicConfig = usePublicConfig();
+  const aiEnabled = useAiEnabled();
   const [showAgent, setShowAgent] = useState(false);
   const returnedProjectId = resumeProject?.footage?.blobKey ? resumeProject.id : null;
   const recordSaved = Boolean(resumeProject?.footage?.blobKey);
@@ -358,8 +362,10 @@ function NewProjectPageInner({ resumeProject }: { resumeProject: Project | null 
           className="mt-2 w-full resize-none rounded-lg border border-line bg-base px-4 py-3 text-sm text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-accent/60"
         />
 
-        <AiConnect connected={!!aiKey} />
-        <TtsConnect connected={!!ttsKey} />
+        {!publicConfig?.hosted && !publicConfig?.localFree && <AiConnect connected={!!aiKey} />}
+        {!publicConfig?.hosted && !publicConfig?.localFree && <TtsConnect connected={!!ttsKey} />}
+
+        <HostedAiBanner />
 
         {uploadError && (
           <p className="mt-3 rounded-lg border border-bad/30 bg-bad/10 px-3 py-2 text-xs text-bad">
@@ -387,7 +393,7 @@ function NewProjectPageInner({ resumeProject }: { resumeProject: Project | null 
           )
         ) : (
           <Button onClick={analyze} size="lg" className="mt-5 w-full">
-            {aiKey ? "Analyze my launch with Claude" : "Analyze my launch"}
+            {aiEnabled ? "Analyze my launch with Claude" : "Analyze my launch"}
           </Button>
         )}
 

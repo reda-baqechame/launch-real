@@ -1,12 +1,25 @@
 import { NextResponse } from "next/server";
 import { LIMITS, trimText } from "@/lib/api-limits";
 import { jsonError, parseJsonBody, isNextResponse, requireNonEmpty } from "@/lib/api-helpers";
+import { isHostedSaas } from "@/lib/cloud/config";
+import { resolveElevenLabsKey, resolveOpenAiKey } from "@/lib/server-keys";
+import { isLocalFreeRequest, localFreeWav } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const elevenKey = req.headers.get("x-elevenlabs-key");
-  const openaiKey = req.headers.get("x-openai-key");
+  if (isLocalFreeRequest(req)) {
+    const body = await parseJsonBody<{ text?: string }>(req);
+    if (isNextResponse(body)) return body;
+    return new NextResponse(localFreeWav(body.text), {
+      headers: { "Content-Type": "audio/wav" },
+    });
+  }
+
+  const openaiKey = await resolveOpenAiKey(req);
+  if (isNextResponse(openaiKey)) return openaiKey;
+  const elevenKey = await resolveElevenLabsKey(req);
+  if (isNextResponse(elevenKey)) return elevenKey;
 
   const body = await parseJsonBody<{ text: string; language?: string; provider?: string }>(req);
   if (isNextResponse(body)) return body;
@@ -72,6 +85,9 @@ export async function POST(req: Request) {
       });
     }
 
+    if (isHostedSaas()) {
+      return jsonError("TTS is not configured on this server.", 503);
+    }
     return jsonError("No TTS key provided.", 400);
   } catch {
     return jsonError("TTS request failed.", 500);

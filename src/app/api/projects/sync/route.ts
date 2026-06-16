@@ -7,11 +7,18 @@ import { ensureAppUser } from "@/lib/db/users";
 import { LIMITS } from "@/lib/api-limits";
 import { isNextResponse, jsonError, parseJsonBody } from "@/lib/api-helpers";
 import type { Project } from "@/lib/types";
+import { isLocalFreeRequest } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
 /** Push local projects up, return merged cloud list. */
 export async function POST(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    const body = await parseJsonBody<{ projects?: Project[] }>(req);
+    if (isNextResponse(body)) return body;
+    return NextResponse.json({ localFree: true, projects: body.projects ?? [] });
+  }
+
   if (!isCloudSyncEnabled()) {
     return jsonError("Cloud sync is not configured.", 503);
   }

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui";
-import { fetchLocalize, getKey } from "@/lib/ai";
+import { fetchLocalize } from "@/lib/ai";
+import { useAiEnabled } from "@/lib/hosted-config";
 import { getBrandKit, saveBrandKit } from "@/lib/brand-kit-store";
 import { LOCALES } from "@/lib/mock-data";
 import { useStore } from "@/lib/store";
@@ -18,9 +19,11 @@ export function LocalizeTab({ project }: { project: Project }) {
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const aiEnabled = useAiEnabled();
+
   async function localize() {
-    if (!getKey()) {
-      setError("Connect an Anthropic key on /new first.");
+    if (!aiEnabled) {
+      setError("Sign in or connect an Anthropic key on /new first.");
       return;
     }
     setBusy(true);

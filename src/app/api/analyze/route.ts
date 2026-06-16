@@ -5,10 +5,11 @@ import {
   isNextResponse,
   jsonError,
   parseJsonBody,
-  requireAnthropicKey,
 } from "@/lib/api-helpers";
+import { resolveAnthropicKey } from "@/lib/server-keys";
 import { LIMITS } from "@/lib/api-limits";
 import { ANALYZE_SYSTEM, QUALITY_SELF_CHECK } from "@/lib/ai-prompts";
+import { isLocalFreeRequest, localFreeAnalyze } from "@/lib/local-free";
 
 const ANALYZE_SCHEMA = {
   type: "object",
@@ -54,7 +55,13 @@ const ANALYZE_SCHEMA = {
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const key = requireAnthropicKey(req);
+  if (isLocalFreeRequest(req)) {
+    const body = await parseJsonBody<{ contextLine?: string }>(req);
+    if (isNextResponse(body)) return body;
+    return NextResponse.json(localFreeAnalyze(body));
+  }
+
+  const key = await resolveAnthropicKey(req);
   if (isNextResponse(key)) return key;
 
   const body = await parseJsonBody<{

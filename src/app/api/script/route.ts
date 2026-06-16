@@ -5,10 +5,11 @@ import {
   isNextResponse,
   jsonError,
   parseJsonBody,
-  requireAnthropicKey,
   requireNonEmpty,
 } from "@/lib/api-helpers";
+import { resolveAnthropicKey } from "@/lib/server-keys";
 import { QUALITY_SELF_CHECK, scriptSystem } from "@/lib/ai-prompts";
+import { isLocalFreeRequest, localFreeScript } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
@@ -58,7 +59,16 @@ const SCRIPT_SCHEMA = {
 } as const;
 
 export async function POST(req: Request) {
-  const key = requireAnthropicKey(req);
+  if (isLocalFreeRequest(req)) {
+    const body = await parseJsonBody<{
+      hook?: string;
+      moments?: { id: string; title?: string; startSec?: number; endSec?: number }[];
+    }>(req);
+    if (isNextResponse(body)) return body;
+    return NextResponse.json(localFreeScript(body));
+  }
+
+  const key = await resolveAnthropicKey(req);
   if (isNextResponse(key)) return key;
 
   const body = await parseJsonBody<{

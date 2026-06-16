@@ -7,6 +7,7 @@ import { getProject } from "@/lib/db/projects";
 import { buildPhLaunchPackage } from "@/lib/ph-launch-prep";
 import { resolvePublishVideo } from "@/lib/resolve-publish-video";
 import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty } from "@/lib/api-helpers";
+import { isLocalFreeRequest } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,29 @@ export const runtime = "nodejs";
  * Requires OAuth so we know the user connected their PH account.
  */
 export async function POST(req: Request) {
+  if (isLocalFreeRequest(req)) {
+    const body = await parseJsonBody<{ projectId?: string; tagline?: string; description?: string }>(req);
+    if (isNextResponse(body)) return body;
+    return NextResponse.json({
+      ok: true,
+      status: "prepared",
+      localFree: true,
+      message: "Local free Product Hunt package prepared.",
+      projectId: body.projectId ?? "local-project",
+      launchPackage: {
+        submitUrl: "https://www.producthunt.com/posts/new",
+        productName: "Local Free Launch",
+        tagline: body.tagline ?? "Launch-ready in minutes",
+        description: body.description ?? "A deterministic local Product Hunt launch package.",
+        firstComment: "Testing the LaunchReel Product Hunt flow locally.",
+        galleryVideoUrl: "https://example.com/local-free-gallery-video.webm",
+        posterNote: "Local free mode uses generated test assets.",
+        steps: ["Copy tagline", "Upload generated assets", "Schedule launch"],
+        apiNote: "Product Hunt does not expose post creation; local free mode prepares the package.",
+      },
+    });
+  }
+
   if (!isProductHuntOAuthEnabled()) {
     return jsonError("Product Hunt OAuth is not configured.", 503);
   }

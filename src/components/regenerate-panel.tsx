@@ -9,6 +9,7 @@ import {
 import { useStore } from "@/lib/store";
 import { useCredits } from "@/lib/use-credits";
 import { shouldWatermark } from "@/lib/watermark-policy";
+import { usePublicConfig } from "@/lib/hosted-config";
 import type { Project } from "@/lib/types";
 
 type RegenerateKind = "social" | "copy";
@@ -16,7 +17,8 @@ type RegenerateKind = "social" | "copy";
 export function RegeneratePanel({ project }: { project: Project }) {
   const { attachAssets, attachCaptions } = useStore();
   const credits = useCredits();
-  const applyWatermark = shouldWatermark(credits);
+  const publicConfig = usePublicConfig();
+  const applyWatermark = publicConfig?.localFree ? false : shouldWatermark(credits);
   const [busy, setBusy] = useState<RegenerateKind | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);

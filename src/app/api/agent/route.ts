@@ -5,6 +5,9 @@ import { mkdir, readFile, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { AGENT_DRIVER_SYSTEM } from "@/lib/ai-prompts";
+import { isNextResponse } from "@/lib/api-helpers";
+import { resolveAnthropicKey } from "@/lib/server-keys";
+import { isLocalFreeRequest, localFreeAgentCapture } from "@/lib/local-free";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { sameHostname, validatePublicHttpsUrl } from "@/lib/url-safety-server";
 
@@ -39,10 +42,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Too many agent requests. Try again shortly." }, { status: 429 });
   }
 
-  const key = req.headers.get("x-anthropic-key");
-  if (!key) {
-    return NextResponse.json({ error: "No Anthropic key." }, { status: 400 });
+  if (isLocalFreeRequest(req)) {
+    return NextResponse.json(localFreeAgentCapture());
   }
+
+  const key = await resolveAnthropicKey(req);
+  if (isNextResponse(key)) return key;
 
   let body: {
     url: string;

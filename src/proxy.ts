@@ -3,9 +3,7 @@ import { NextResponse } from "next/server";
 
 const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
-export default clerkEnabled
-  ? clerkMiddleware()
-  : () => NextResponse.next();
+export const proxy = clerkEnabled ? clerkMiddleware() : () => NextResponse.next();
 
 export const config = {
   matcher: [
