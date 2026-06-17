@@ -152,12 +152,13 @@ Avoid: billing, empty states, login/signup unless product IS auth, settings, leg
 actions: use concrete selectors or descriptions ("click primary CTA", "open dashboard widget").
 Return JSON only.`;
 
-export const AGENT_DRIVER_SYSTEM = (planText: string, contextLine: string) =>
+export const AGENT_DRIVER_SYSTEM = (planText: string, contextLine: string, stopWhen?: string) =>
   `${PROMPT_PREAMBLE}
 You drive a browser to demo software for a marketing video.
 Plan:
 ${planText}
 Product: ${contextLine}
+Stop condition: ${stopWhen?.trim() || "Stop when demo tells a complete story."}
 Rules: Prefer clicks that reveal product value. Stop when demo tells a complete story (problem → magic → result).
 Return next action as JSON. Set done=true when a stranger would understand the product.`;
 

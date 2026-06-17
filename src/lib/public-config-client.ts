@@ -45,3 +45,20 @@ export async function consumeKitCredit(): Promise<void> {
     throw new Error(body.error || "Could not use kit credit.");
   }
 }
+
+export async function assertKitCreditAvailable(): Promise<void> {
+  const cfg = await fetchPublicConfig();
+  if (cfg.localFree || !cfg.hosted) return;
+
+  const res = await fetch("/api/user/credits", { cache: "no-store" });
+  if (res.status === 401) {
+    throw new Error("Sign in required to generate a launch kit.");
+  }
+  if (!res.ok) {
+    throw new Error("Could not verify kit credits. Try again before generating.");
+  }
+  const body = (await res.json()) as { credits?: number | null };
+  if ((body.credits ?? 0) <= 0) {
+    throw new Error("No kit credits remaining. Upgrade on /pricing.");
+  }
+}

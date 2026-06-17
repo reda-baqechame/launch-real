@@ -179,25 +179,31 @@ export function localFreeLocalize(input?: { productName?: string; locale?: strin
   };
 }
 
-export function localFreeAgentPlan() {
+export function localFreeAgentPlan(input?: { goal?: string; avoid?: string[]; stopWhen?: string }) {
   return {
     steps: [
       { goal: "Open the product", action: "Load the supplied URL and wait for the main UI." },
-      { goal: "Show the core workflow", action: "Move through the first visible creation or demo step." },
+      {
+        goal: input?.goal?.trim() || "Show the core workflow",
+        action: "Move through the first visible creation or demo step.",
+      },
       { goal: "Capture the payoff", action: "End on the clearest completed output or dashboard." },
     ],
-    avoid: ["Do not enter real credentials", "Do not submit payments"],
+    avoid: input?.avoid?.length ? input.avoid : ["Do not enter real credentials", "Do not submit payments"],
+    stopWhen: input?.stopWhen?.trim() || "The payoff screen or dashboard is visible.",
   };
 }
 
 export function localFreeAgentCapture() {
   return {
+    captureMode: "screenshots",
     videoBase64: null,
     clicks: [{ tMs: 700, x: 0.5, y: 0.5 }],
     screenshots: [
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
     ],
     partial: false,
+    failureReason: null,
     mimeType: "video/webm",
   };
 }

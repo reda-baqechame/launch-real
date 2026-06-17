@@ -88,7 +88,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 export interface RenderSocialClipOpts {
-  video: HTMLVideoElement;
+  video?: HTMLVideoElement;
   plan: SocialClipPlan;
   ctaText: string;
   clicks?: ClickEvent[];
@@ -198,7 +198,7 @@ export async function renderSocialClip(opts: RenderSocialClipOpts): Promise<Blob
         if (img) {
           const clip = kenBurnsClipForBody(bodyDur, imgIdx);
           drawKenBurnsImage(ctx, img, clip, progress, w, h, brand.backgroundColor);
-        } else {
+        } else if (opts.video) {
           const srcDur = segment.sourceEndSec - segment.sourceStartSec;
           const sourceTime = segment.sourceStartSec + progress * srcDur;
           if (Math.abs(sourceTime - lastSourceTime) > 0.03) {
@@ -208,7 +208,7 @@ export async function renderSocialClip(opts: RenderSocialClipOpts): Promise<Blob
           const zoom = zoomAtTime(segment.zoomKeyframes, progress * bodyDur * 1000);
           drawZoomedFrame(ctx, opts.video, zoom, w, h);
         }
-      } else {
+      } else if (opts.video) {
         const srcDur = segment.sourceEndSec - segment.sourceStartSec;
         const sourceTime = segment.sourceStartSec + progress * srcDur;
 
@@ -242,16 +242,18 @@ export async function renderAllSocialClips(opts: {
   imageUrls?: string[];
   onProgress?: (pct: number) => void;
 }): Promise<{ plan: SocialClipPlan; blob: Blob }[]> {
-  const video = document.createElement("video");
-  video.src = opts.footageUrl;
-  video.muted = true;
-  video.playsInline = true;
-  await new Promise<void>((resolve, reject) => {
-    video.onloadedmetadata = () => resolve();
-    video.onerror = () => reject(new Error("Footage load failed"));
-  });
-
   const images = opts.imageUrls?.length ? await loadImages(opts.imageUrls) : undefined;
+  let video: HTMLVideoElement | undefined;
+  if (!images?.length) {
+    video = document.createElement("video");
+    video.src = opts.footageUrl;
+    video.muted = true;
+    video.playsInline = true;
+    await new Promise<void>((resolve, reject) => {
+      video!.onloadedmetadata = () => resolve();
+      video!.onerror = () => reject(new Error("Footage load failed"));
+    });
+  }
 
   const out: { plan: SocialClipPlan; blob: Blob }[] = [];
   for (let i = 0; i < opts.plans.length; i++) {

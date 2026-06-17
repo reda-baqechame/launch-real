@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>LaunchReel Agent Lane Security Review</title>
+    <style>
+      body { font-family: system-ui, sans-serif; line-height: 1.5; max-width: 920px; margin: 40px auto; padding: 0 20px; color: #18181b; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #d4d4d8; padding: 8px; text-align: left; vertical-align: top; }
+      th { background: #f4f4f5; }
+      code { background: #f4f4f5; padding: 2px 4px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>LaunchReel Agent Lane Security Review</h1>
+    <p><strong>Date:</strong> 2026-06-17</p>
+    <p><strong>Scope:</strong> same-day real-app agent test lane, local-free mode, credential handling, SSRF controls, hosted credit gating, and test harness.</p>
+    <h2>Result</h2>
+    <p>Focused Codex Security subagents found release-blocking issues before commit. The blocking issues were fixed and verified locally.</p>
+    <h2>Findings Fixed</h2>
+    <table>
+      <thead><tr><th>Finding</th><th>Status</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>Server-side browser could follow redirects/clicks/subresources into private networks</td><td>Fixed</td><td>Playwright request interception validates every request against the starting host and URL safety rules. Page URL is rechecked during the action loop.</td></tr>
+        <tr><td>Production agent routes could run without app auth in a misconfigured deployment</td><td>Fixed</td><td><code>/api/agent</code> and <code>/api/agent/plan</code> require auth whenever <code>NODE_ENV=production</code>.</td></tr>
+        <tr><td>Optional credentials could be recorded on the login page</td><td>Fixed</td><td>Login runs in a non-recorded Playwright context, then transfers <code>storageState</code> into the recorded context.</td></tr>
+        <tr><td>Credentials were sent to the planning endpoint</td><td>Fixed</td><td>Planning sends only <code>hasCredentials</code>; raw credentials are sent only to <code>/api/agent</code>.</td></tr>
+        <tr><td>Credentials were not cleared on all UI paths</td><td>Fixed</td><td>Username and password are cleared after capture, on capture failure, and on cancel.</td></tr>
+        <tr><td>Hosted credits failed open while credit state was still loading</td><td>Fixed</td><td>Hosted generation performs a fresh credit preflight before provider/render work, then consumes only after successful generation.</td></tr>
+        <tr><td>Product Hunt generated media replaced prepared text assets</td><td>Fixed</td><td>Generated PH media is merged into existing Product Hunt copy assets.</td></tr>
+        <tr><td>Moderate PostCSS advisory through Next nested dependency</td><td>Fixed</td><td><code>postcss</code> is overridden to <code>8.5.15</code>; audit reports zero vulnerabilities.</td></tr>
+      </tbody>
+    </table>
+    <h2>Residual Production Note</h2>
+    <p>Browser-side local renders are still client-controlled by design. For a strict paid unwatermarked export boundary, production should treat browser renders as previews and issue unwatermarked final exports through an authenticated server/cloud render job after entitlement is confirmed.</p>
+    <p>For defense in depth, production hosting should also block private, link-local, loopback, and metadata egress at the platform/network layer.</p>
+    <h2>Verification</h2>
+    <ul>
+      <li><code>npm run verify</code>: pass</li>
+      <li><code>npm run smoke:agent-local</code>: pass</li>
+      <li><code>npm audit --omit=dev</code>: pass, zero vulnerabilities</li>
+      <li>Production guard smoke: local-free false under <code>next start</code>; signed-out production agent plan returns <code>401</code></li>
+    </ul>
+  </body>
+</html>

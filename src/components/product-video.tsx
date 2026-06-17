@@ -430,7 +430,7 @@ export async function renderProductVideo(
   let video: HTMLVideoElement | undefined;
   let footageDur = images.length > 0 ? images.length * 5 : 60;
 
-  if (opts.footageUrl) {
+  if (opts.footageUrl && images.length === 0) {
     video = document.createElement("video");
     video.src = opts.footageUrl;
     video.muted = true;

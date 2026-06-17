@@ -15,7 +15,7 @@ import {
   getTtsKey,
   getTtsProvider,
 } from "@/lib/ai";
-import { consumeKitCredit, useAiEnabled, usePublicConfig, useTtsEnabled } from "@/lib/hosted-config";
+import { assertKitCreditAvailable, consumeKitCredit, useAiEnabled, usePublicConfig, useTtsEnabled } from "@/lib/hosted-config";
 import { formatTimecode, grabFrame } from "@/lib/director";
 import { buildChangelogAssets } from "@/lib/changelog-kit";
 import { getBlob, getBlobUrl, narrationKey, renderKey, saveBlob, saveRender, socialClipKey, teaserGifKey, variantCutKey, variantRenderKey } from "@/lib/footage-store";
@@ -198,11 +198,12 @@ export function MomentReview({ project }: { project: Project }) {
     setStep(0);
 
     try {
-      if (publicConfig?.hosted && credits.enabled && (credits.credits ?? 0) <= 0) {
-        throw new Error("No kit credits remaining. Upgrade on /pricing.");
+      if (publicConfig?.hosted) {
+        await assertKitCreditAvailable();
       }
 
       const applyWatermark = publicConfig?.localFree ? false : shouldWatermark(credits);
+      const localFastRender = Boolean(publicConfig?.localFree);
       const footageUrl = await getBlobUrl(project.footage.blobKey, "footage");
       if (!footageUrl) throw new Error("Footage missing.");
 
@@ -261,7 +262,7 @@ export function MomentReview({ project }: { project: Project }) {
               aspects: ["16:9"],
               watermark: applyWatermark,
               proxy: true,
-              maxDurationSec: 18,
+              maxDurationSec: localFastRender ? 4 : 18,
             }),
             renderProductVideo({
               footageUrl,
@@ -272,7 +273,7 @@ export function MomentReview({ project }: { project: Project }) {
               aspects: ["16:9"],
               watermark: applyWatermark,
               proxy: true,
-              maxDurationSec: 18,
+              maxDurationSec: localFastRender ? 4 : 18,
             }),
           ]);
 
@@ -335,6 +336,7 @@ export function MomentReview({ project }: { project: Project }) {
         narrationUrl,
         watermark: applyWatermark,
         proxy: false,
+        maxDurationSec: localFastRender ? 5 : undefined,
       });
 
       const renders = await Promise.all(
@@ -393,7 +395,7 @@ export function MomentReview({ project }: { project: Project }) {
             narrationUrl,
             watermark: applyWatermark,
             proxy: false,
-            maxDurationSec: 28,
+            maxDurationSec: localFastRender ? 5 : 28,
           }),
           renderProductVideo({
             footageUrl,
@@ -405,7 +407,7 @@ export function MomentReview({ project }: { project: Project }) {
             narrationUrl,
             watermark: applyWatermark,
             proxy: false,
-            maxDurationSec: 28,
+            maxDurationSec: localFastRender ? 5 : 28,
           }),
         ]);
         const fKey = variantCutKey(project.id, "founder");
@@ -477,7 +479,15 @@ export function MomentReview({ project }: { project: Project }) {
           );
         }
 
-        attachAssets(project.id, { productHunt: kit.productHunt, social: socialAssets });
+        const generatedById = new Map(kit.productHunt.map((asset) => [asset.id, asset]));
+        const mergedProductHunt = [
+          ...project.assets.productHunt.map((asset) => generatedById.get(asset.id) ?? asset),
+          ...kit.productHunt.filter(
+            (asset) => !project.assets.productHunt.some((existing) => existing.id === asset.id),
+          ),
+        ];
+
+        attachAssets(project.id, { productHunt: mergedProductHunt, social: socialAssets });
       } catch {
         /* PH kit optional — social already saved */
       }

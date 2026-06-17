@@ -14,6 +14,7 @@ import type { ClickEvent } from "@/lib/types";
 interface DemoPlan {
   steps: { goal: string; action: string }[];
   avoid: string[];
+  stopWhen?: string;
 }
 
 interface AgentCapturePanelProps {
@@ -32,6 +33,11 @@ const PLANNING_STEPS = [
 type Phase = "idle" | "planning" | "review-plan" | "capturing" | "error";
 type FailedAt = "plan" | "capture";
 
+function screenshotDataUrl(base64: string): string {
+  const mime = base64.startsWith("iVBOR") ? "image/png" : "image/jpeg";
+  return `data:${mime};base64,${base64}`;
+}
+
 export function AgentCapturePanel({
   url,
   contextLine,
@@ -46,6 +52,12 @@ export function AgentCapturePanel({
   const [failedAt, setFailedAt] = useState<FailedAt | null>(null);
   const [planningStep, setPlanningStep] = useState(0);
   const [captureStep, setCaptureStep] = useState(0);
+  const [goal, setGoal] = useState("Show the core workflow and the final payoff.");
+  const [extraInstructions, setExtraInstructions] = useState(instructions ?? "");
+  const [avoidText, setAvoidText] = useState("billing, destructive actions, real payments");
+  const [stopWhen, setStopWhen] = useState("The app's main payoff or dashboard is visible.");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
 
   const captureSteps = useMemo(() => {
     const planGoals = plan?.steps.map((s) => s.goal) ?? ["Exploring your app"];
@@ -70,6 +82,49 @@ export function AgentCapturePanel({
 
   const aiEnabled = useAiEnabled();
 
+  const avoid = useMemo(
+    () =>
+      avoidText
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    [avoidText],
+  );
+
+  const requestPayload = useCallback(
+    () => ({
+      url,
+      contextLine,
+      instructions: extraInstructions,
+      goal,
+      avoid,
+      stopWhen,
+      credentials:
+        username.trim() || password
+          ? { username: username.trim(), password }
+          : undefined,
+    }),
+    [url, contextLine, extraInstructions, goal, avoid, stopWhen, username, password],
+  );
+
+  const planPayload = useCallback(
+    () => ({
+      url,
+      contextLine,
+      instructions: extraInstructions,
+      goal,
+      avoid,
+      stopWhen,
+      hasCredentials: Boolean(username.trim() || password),
+    }),
+    [url, contextLine, extraInstructions, goal, avoid, stopWhen, username, password],
+  );
+
+  const clearCredentials = useCallback(() => {
+    setUsername("");
+    setPassword("");
+  }, []);
+
   const loadPlan = useCallback(async () => {
     if (!aiEnabled) {
       setError("Sign in or connect an Anthropic key on this page first.");
@@ -85,20 +140,21 @@ export function AgentCapturePanel({
       const res = await fetch("/api/agent/plan", {
         method: "POST",
         headers: await agentJsonHeaders(),
-        body: JSON.stringify({ url, contextLine, instructions }),
+        body: JSON.stringify(planPayload()),
       });
       if (!res.ok) {
         const b = (await res.json()) as { error?: string };
         throw new Error(b.error || "Plan failed.");
       }
-      setPlan((await res.json()) as DemoPlan);
+      const nextPlan = (await res.json()) as DemoPlan;
+      setPlan({ ...nextPlan, stopWhen: nextPlan.stopWhen || stopWhen });
       setPhase("review-plan");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Plan failed.");
       setFailedAt("plan");
       setPhase("error");
     }
-  }, [url, contextLine, instructions, aiEnabled]);
+  }, [planPayload, aiEnabled, stopWhen]);
 
   const runCapture = useCallback(async () => {
     if (!aiEnabled) {
@@ -115,7 +171,7 @@ export function AgentCapturePanel({
       const res = await fetch("/api/agent", {
         method: "POST",
         headers: await agentJsonHeaders(),
-        body: JSON.stringify({ url, contextLine, plan, instructions }),
+        body: JSON.stringify({ ...requestPayload(), plan }),
       });
       if (!res.ok) {
         const b = (await res.json()) as { error?: string };
@@ -126,7 +182,9 @@ export function AgentCapturePanel({
         clicks: ClickEvent[];
         screenshots: string[];
         mimeType: string;
+        captureMode: "video" | "screenshots";
         partial?: boolean;
+        failureReason?: string | null;
       };
 
       const p = createProject({ url, description: contextLine });
@@ -147,9 +205,16 @@ export function AgentCapturePanel({
           clicks: data.clicks,
         });
       } else if (data.screenshots.length > 0) {
-        const blob = await screenshotsToVideo(
-          data.screenshots.map((b64) => `data:image/jpeg;base64,${b64}`),
+        const screenshotUrls = data.screenshots.map(screenshotDataUrl);
+        const screenshotKeys = await Promise.all(
+          screenshotUrls.map(async (dataUrl, index) => {
+            const screenshotKey = `screenshot:${p.id}:agent:${index}`;
+            const screenshotBlob = await (await fetch(dataUrl)).blob();
+            await saveBlob(screenshotKey, p.id, screenshotBlob, "screenshot");
+            return screenshotKey;
+          }),
         );
+        const blob = await screenshotsToVideo(screenshotUrls);
         await saveBlob(blobKey, p.id, blob, "footage");
         attachFootage(p.id, {
           projectId: p.id,
@@ -157,16 +222,25 @@ export function AgentCapturePanel({
           hasAudio: false,
           clickCount: 0,
           blobKey,
+          screenshotKeys,
         });
       }
 
+      clearCredentials();
       router.push(`/projects/${p.id}/audit`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Capture failed.");
       setFailedAt("capture");
       setPhase("error");
+    } finally {
+      clearCredentials();
     }
-  }, [url, contextLine, plan, instructions, createProject, attachFootage, router, aiEnabled]);
+  }, [requestPayload, plan, createProject, attachFootage, router, aiEnabled, url, contextLine, clearCredentials]);
+
+  const cancel = useCallback(() => {
+    clearCredentials();
+    onCancel();
+  }, [clearCredentials, onCancel]);
 
   if (phase === "idle") {
     return (
@@ -174,9 +248,70 @@ export function AgentCapturePanel({
         <p className="text-sm text-ink-mute">
           LaunchReel will explore <span className="text-ink">{url}</span> and record a demo automatically.
         </p>
+        <div className="mt-4 grid gap-3">
+          <label className="text-xs font-medium text-ink-soft">
+            Demo goal
+            <textarea
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+              rows={2}
+              className="mt-1 w-full resize-none rounded-lg border border-line bg-base px-3 py-2 text-sm text-ink"
+            />
+          </label>
+          <label className="text-xs font-medium text-ink-soft">
+            Extra instructions
+            <textarea
+              value={extraInstructions}
+              onChange={(e) => setExtraInstructions(e.target.value)}
+              rows={2}
+              placeholder="Example: log in, create a sample invoice, show export, then open dashboard"
+              className="mt-1 w-full resize-none rounded-lg border border-line bg-base px-3 py-2 text-sm text-ink"
+            />
+          </label>
+          <label className="text-xs font-medium text-ink-soft">
+            Avoid
+            <input
+              value={avoidText}
+              onChange={(e) => setAvoidText(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-ink"
+            />
+          </label>
+          <label className="text-xs font-medium text-ink-soft">
+            Stop when
+            <input
+              value={stopWhen}
+              onChange={(e) => setStopWhen(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-ink"
+            />
+          </label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="text-xs font-medium text-ink-soft">
+              Test login email or username
+              <input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="off"
+                className="mt-1 w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-ink"
+              />
+            </label>
+            <label className="text-xs font-medium text-ink-soft">
+              Test password
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type="password"
+                autoComplete="off"
+                className="mt-1 w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-ink"
+              />
+            </label>
+          </div>
+          <p className="text-xs text-ink-mute">
+            Use disposable test credentials only. Login runs before recording and credentials are not saved, but the captured app may show account identity.
+          </p>
+        </div>
         <div className="mt-4 flex gap-2">
           <Button onClick={() => void loadPlan()}>Plan demo</Button>
-          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+          <Button variant="secondary" onClick={cancel}>Cancel</Button>
         </div>
       </Card>
     );
@@ -280,7 +415,7 @@ export function AgentCapturePanel({
           ) : (
             <Button size="sm" onClick={() => void loadPlan()}>Retry plan</Button>
           )}
-          <Button size="sm" variant="secondary" onClick={onCancel}>Cancel</Button>
+          <Button size="sm" variant="secondary" onClick={cancel}>Cancel</Button>
         </div>
       </Card>
     );
@@ -300,10 +435,80 @@ export function AgentCapturePanel({
       {plan?.avoid?.length ? (
         <p className="mt-3 text-xs text-ink-mute">Avoid: {plan.avoid.join(", ")}</p>
       ) : null}
+      <div className="mt-4 space-y-3">
+        {plan?.steps.map((s, i) => (
+          <div key={`edit-${i}`} className="rounded-lg border border-line bg-base p-3">
+            <label className="block text-xs font-medium text-ink-soft">
+              Step {i + 1} goal
+              <input
+                value={s.goal}
+                onChange={(e) =>
+                  setPlan((current) =>
+                    current
+                      ? {
+                          ...current,
+                          steps: current.steps.map((step, idx) =>
+                            idx === i ? { ...step, goal: e.target.value } : step,
+                          ),
+                        }
+                      : current,
+                  )
+                }
+                className="mt-1 w-full rounded border border-line bg-surface px-2 py-1 text-sm text-ink"
+              />
+            </label>
+            <label className="mt-2 block text-xs font-medium text-ink-soft">
+              Step {i + 1} action
+              <textarea
+                value={s.action}
+                onChange={(e) =>
+                  setPlan((current) =>
+                    current
+                      ? {
+                          ...current,
+                          steps: current.steps.map((step, idx) =>
+                            idx === i ? { ...step, action: e.target.value } : step,
+                          ),
+                        }
+                      : current,
+                  )
+                }
+                rows={2}
+                className="mt-1 w-full resize-none rounded border border-line bg-surface px-2 py-1 text-sm text-ink"
+              />
+            </label>
+          </div>
+        ))}
+        <label className="block text-xs font-medium text-ink-soft">
+          Avoid
+          <input
+            value={plan?.avoid?.join(", ") ?? avoidText}
+            onChange={(e) => {
+              const nextAvoid = e.target.value
+                .split(",")
+                .map((item) => item.trim())
+                .filter(Boolean);
+              setPlan((current) => (current ? { ...current, avoid: nextAvoid } : current));
+              setAvoidText(e.target.value);
+            }}
+            className="mt-1 w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-ink"
+          />
+        </label>
+        <label className="block text-xs font-medium text-ink-soft">
+          Stop when
+          <input
+            value={plan?.stopWhen ?? stopWhen}
+            onChange={(e) =>
+              setPlan((current) => (current ? { ...current, stopWhen: e.target.value } : current))
+            }
+            className="mt-1 w-full rounded-lg border border-line bg-base px-3 py-2 text-sm text-ink"
+          />
+        </label>
+      </div>
       <div className="mt-4 flex gap-2">
         <Button onClick={() => void runCapture()}>Explore &amp; record</Button>
         <Button variant="secondary" onClick={() => void loadPlan()}>Replan</Button>
-        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+        <Button variant="secondary" onClick={cancel}>Cancel</Button>
       </div>
     </Card>
   );

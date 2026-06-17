@@ -5,7 +5,7 @@ import { useAnthropicKey, useTtsKey } from "@/lib/ai";
 import { fetchPublicConfig, type PublicConfig } from "@/lib/public-config-client";
 
 export type { PublicConfig };
-export { fetchPublicConfig, consumeKitCredit } from "@/lib/public-config-client";
+export { assertKitCreditAvailable, fetchPublicConfig, consumeKitCredit } from "@/lib/public-config-client";
 
 export function usePublicConfig(): PublicConfig | null {
   const [cfg, setCfg] = useState<PublicConfig | null>(null);

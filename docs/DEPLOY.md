@@ -95,7 +95,23 @@ RENDER_WEBHOOK_SECRET=...   # random string for render completion webhook
 OAUTH_STATE_SECRET=...      # CSRF for OAuth (defaults to CLERK_SECRET_KEY)
 ```
 
-## 7. Verify hosted mode
+## 7. Real app agent testing
+
+For same-day local QA against a real app URL, use the dedicated agent smoke lane:
+
+```bash
+npm run smoke:agent-local
+```
+
+For localhost, staging, or private dev apps, set the dev-only allowlist before running the app:
+
+```env
+LAUNCHREEL_AGENT_ALLOWED_HOSTS=localhost,127.0.0.1,your-staging-host
+```
+
+This allowlist is ignored in production. See [`docs/REAL_APP_TESTING.md`](REAL_APP_TESTING.md) for the manual checklist, login handling, and expected outputs.
+
+## 8. Verify hosted mode
 
 After deploy, check:
 
@@ -117,7 +133,7 @@ Expected when fully configured:
 }
 ```
 
-## 8. How billing works
+## 9. How billing works
 
 | Action | Credits |
 |--------|---------|
@@ -130,7 +146,7 @@ When credits reach 0, generation returns `402` and the UI links to `/pricing`.
 
 Watermark is removed when `credits > 0` (see `src/lib/watermark-policy.ts`).
 
-## 9. Local free test mode
+## 10. Local free test mode
 
 Use this when you want every route and button to work locally without Clerk, Stripe, Anthropic, OpenAI, ElevenLabs, OAuth, Trigger, Lambda, or S3 credentials:
 
@@ -150,7 +166,7 @@ Open `http://localhost:3000/new`. `/api/public-config` should report `"localFree
 - Uses deterministic local AI, TTS, transcription, render, checkout, OAuth, YouTube, and Product Hunt providers
 - Only activates when `NODE_ENV !== "production"` and the request host is `localhost`, `127.0.0.1`, or `[::1]`
 
-## 10. Local hosted testing
+## 11. Local hosted testing
 
 Copy `.env.example` → `.env.local` and fill Clerk + Postgres + Anthropic + Stripe (test mode):
 
@@ -166,7 +182,7 @@ Stripe webhook locally:
 stripe listen --forward-to localhost:3000/api/stripe/webhook
 ```
 
-## 11. Security checklist
+## 12. Security checklist
 
 - [ ] All secrets in Vercel env (never commit `.env.local`)
 - [ ] `RENDER_WEBHOOK_SECRET` set in production

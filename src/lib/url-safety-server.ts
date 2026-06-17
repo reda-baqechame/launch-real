@@ -4,7 +4,17 @@ import { sameHostname } from "@/lib/blob-hosts";
 
 export { sameHostname };
 
-const BLOCKED_HOSTS = new Set(["localhost", "metadata.google.internal", "metadata.google"]);
+const BLOCKED_HOSTS = new Set(["metadata.google.internal", "metadata.google"]);
+
+function agentAllowedHosts(): Set<string> {
+  if (process.env.NODE_ENV === "production") return new Set();
+  return new Set(
+    (process.env.LAUNCHREEL_AGENT_ALLOWED_HOSTS ?? "")
+      .split(",")
+      .map((h) => h.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
 
 function isPrivateIp(ip: string): boolean {
   const kind = isIP(ip);
@@ -28,7 +38,7 @@ function isPrivateIp(ip: string): boolean {
 function allowLocalHttp(hostname: string): boolean {
   return (
     process.env.NODE_ENV !== "production" &&
-    (hostname === "localhost" || hostname === "127.0.0.1")
+    (hostname === "localhost" || hostname === "127.0.0.1" || agentAllowedHosts().has(hostname))
   );
 }
 
@@ -51,19 +61,22 @@ export async function validatePublicHttpsUrl(raw: string): Promise<URL> {
   }
 
   const host = url.hostname.toLowerCase();
+  const allowedDevHost = agentAllowedHosts().has(host);
   if (BLOCKED_HOSTS.has(host)) {
     throw new Error("URL not allowed.");
   }
 
   if (isIP(host)) {
-    if (isPrivateIp(host)) throw new Error("Private network URLs are not allowed.");
+    if (isPrivateIp(host) && !allowedDevHost && !allowLocalHttp(host)) {
+      throw new Error("Private network URLs are not allowed.");
+    }
     return url;
   }
 
   const records = await lookup(host, { all: true });
   if (!records.length) throw new Error("Could not resolve URL.");
   for (const record of records) {
-    if (isPrivateIp(record.address)) {
+    if (isPrivateIp(record.address) && !allowedDevHost && !allowLocalHttp(host)) {
       throw new Error("URL resolves to a private network.");
     }
   }
