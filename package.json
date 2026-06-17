@@ -2,10 +2,15 @@
   "name": "launch-real",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "24.x",
+    "npm": "11.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "start:railway": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "eslint",
     "verify": "npm run build && npm run lint",
     "smoke:agent-local": "powershell -ExecutionPolicy Bypass -File scripts/smoke-agent-local.ps1",
