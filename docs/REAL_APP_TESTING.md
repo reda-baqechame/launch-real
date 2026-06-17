@@ -6,9 +6,10 @@ Use this lane when you want LaunchReel to browse a real app URL, silently captur
 
 ```bash
 npm run smoke:agent-local
+npm run test:agent-evals
 ```
 
-The smoke script starts Next.js in local free mode if needed, opens `/new`, chooses `Give agent access`, plans the demo, captures a test site, generates the kit, checks the result/share pages, and verifies TTS audio.
+The smoke script starts Next.js in local free mode if needed, opens `/new`, chooses `Give agent access`, plans the demo, captures a test site, generates the kit, checks the result/share pages, and verifies TTS audio. The eval command also verifies the durable operator job API, replayable action ledger, credential sentinel non-persistence, and private-network denial.
 
 Expected `/api/public-config` signal:
 
@@ -50,3 +51,13 @@ Credentials are request-only. The UI sends them only to the capture request for 
 - Missing hosted provider keys return `503` instead of falling back to mocks.
 - Credits are consumed after successful kit generation, not during planning or capture.
 - Product Hunt remains package preparation only; public post creation still requires the Product Hunt UI.
+
+Production checks:
+
+```bash
+npm run smoke:production-guard
+npm run smoke:real-providers
+npm run security:scan
+```
+
+`smoke:real-providers` intentionally fails until Clerk, Postgres, Stripe, Anthropic, OpenAI, webhook, and OAuth-state secrets are present in the environment or `.env.local`.

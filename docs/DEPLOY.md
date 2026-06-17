@@ -101,6 +101,7 @@ For same-day local QA against a real app URL, use the dedicated agent smoke lane
 
 ```bash
 npm run smoke:agent-local
+npm run test:agent-evals
 ```
 
 For localhost, staging, or private dev apps, set the dev-only allowlist before running the app:
@@ -110,6 +111,16 @@ LAUNCHREEL_AGENT_ALLOWED_HOSTS=localhost,127.0.0.1,your-staging-host
 ```
 
 This allowlist is ignored in production. See [`docs/REAL_APP_TESTING.md`](REAL_APP_TESTING.md) for the manual checklist, login handling, and expected outputs.
+
+Enterprise guard commands:
+
+```bash
+npm run smoke:production-guard
+npm run smoke:real-providers
+npm run security:scan
+```
+
+`smoke:real-providers` is expected to fail until all required production secrets are configured in the environment or `.env.local`.
 
 ## 8. Verify hosted mode
 

@@ -254,8 +254,12 @@ cp .env.example .env.local        # optional — cloud features
 npm run dev                         # http://localhost:3000
 npm run verify                      # build + lint
 npm run smoke:agent-local           # local-free real-app agent lane
+npm run test:agent-evals            # durable operator API + safety evals
+npm run smoke:production-guard      # production local-free/auth guard
+npm run security:scan               # local automated security gate
 ```
 
 Connect an **Anthropic key** on `/new` for AI audit, moments, scripts, and copy. Optional: OpenAI (Whisper + TTS) or ElevenLabs (TTS).
 
 Real app capture checklist: [`docs/REAL_APP_TESTING.md`](REAL_APP_TESTING.md).
+Enterprise readiness audit: [`docs/ENTERPRISE_READINESS.md`](ENTERPRISE_READINESS.md).

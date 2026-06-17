@@ -9,7 +9,11 @@
     "lint": "eslint",
     "verify": "npm run build && npm run lint",
     "smoke:agent-local": "powershell -ExecutionPolicy Bypass -File scripts/smoke-agent-local.ps1",
+    "smoke:production-guard": "powershell -ExecutionPolicy Bypass -File scripts/smoke-production-guard.ps1",
+    "smoke:real-providers": "powershell -ExecutionPolicy Bypass -File scripts/smoke-real-providers.ps1",
     "test:e2e": "node scripts/e2e-agent-local.js",
+    "test:agent-evals": "powershell -ExecutionPolicy Bypass -File scripts/test-agent-evals.ps1",
+    "security:scan": "powershell -ExecutionPolicy Bypass -File scripts/security-scan.ps1",
     "loop:tick": "powershell -ExecutionPolicy Bypass -File scripts/build-loop.ps1",
     "loop:start": "powershell -ExecutionPolicy Bypass -File scripts/start-build-loop.ps1"
   },

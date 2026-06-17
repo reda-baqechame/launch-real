@@ -25,6 +25,8 @@
 *.pem
 .lighthouse/
 .lighthouse-*/
+.launchreel-agent-jobs/
+security-scans/
 
 # debug
 npm-debug.log*
