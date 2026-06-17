@@ -28,6 +28,7 @@ async function main() {
           avoid: ["billing", "delete", "real payments"],
           stopWhen: "The value proposition is visible.",
           credentials: { username: "eval-sentinel@example.test", password: "eval-secret-sentinel" },
+          accountMode: "use_provided",
         },
       });
       if (!res.ok()) throw new Error(`operator job failed: ${res.status()}`);
@@ -35,8 +36,31 @@ async function main() {
       if (!job.id || job.status !== "succeeded") throw new Error(`unexpected job status: ${job.status}`);
       if (!Array.isArray(job.actionLedger) || job.actionLedger.length < 2) throw new Error("missing action ledger");
       if (!job.traceSummary || !job.finalReport) throw new Error("missing operator report");
+      if (!job.actionLedger.some((entry) => entry.observation && typeof entry.confidence === "number")) {
+        throw new Error("missing operator observations/confidence");
+      }
+      if (!job.appUnderstanding?.valueProp || !job.editorBrief?.narrativeArc) {
+        throw new Error("missing app understanding or editor brief");
+      }
       const leaked = JSON.stringify(job).includes("eval-secret-sentinel");
       if (leaked) throw new Error("credential sentinel leaked into job response");
+    });
+
+    await pass("operator supports disposable account mode without persisting generated password", async () => {
+      const res = await page.request.post(`${baseUrl}/api/agent/jobs`, {
+        data: {
+          url: "https://example.com",
+          contextLine: "disposable account eval",
+          goal: "Discover the app path with a disposable account if needed.",
+          stopWhen: "The demo can continue safely.",
+          accountMode: "create_disposable",
+          disposableEmailDomain: "example.test",
+        },
+      });
+      if (!res.ok()) throw new Error(`disposable operator failed: ${res.status()}`);
+      const job = await res.json();
+      if (JSON.stringify(job).includes("LR-")) throw new Error("generated disposable password leaked");
+      if (!job.editorBrief?.bestMoments?.length) throw new Error("missing editor best moments");
     });
 
     await pass("operator job can be read by id", async () => {

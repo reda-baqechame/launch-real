@@ -17,6 +17,11 @@ export async function POST(req: Request, { params }: Props) {
   const { id } = await params;
   const existing = await readOperatorJob(id);
   if (!existing) return NextResponse.json({ error: "Operator job not found." }, { status: 404 });
+  if (process.env.NODE_ENV === "production") {
+    const userId = await requireAuthUserId();
+    if (isNextResponse(userId)) return userId;
+    if (existing.ownerUserId !== userId) return NextResponse.json({ error: "Operator job not found." }, { status: 404 });
+  }
   if (existing.status !== "needs_approval") {
     return NextResponse.json({ error: "Operator job is not waiting for approval." }, { status: 409 });
   }
@@ -38,6 +43,7 @@ export async function POST(req: Request, { params }: Props) {
     avoid: existing.avoid,
     stopWhen: existing.stopWhen,
     approvedRiskKinds: existing.approvedRiskKinds,
+    ownerUserId: existing.ownerUserId,
   };
 
   if (isLocalFreeRequest(req)) {
@@ -45,11 +51,6 @@ export async function POST(req: Request, { params }: Props) {
     const merged = { ...job, id: existing.id, approvalRequests: existing.approvalRequests };
     await saveOperatorJob(merged);
     return NextResponse.json(sanitizeOperatorJob(merged));
-  }
-
-  if (process.env.NODE_ENV === "production") {
-    const userId = await requireAuthUserId();
-    if (isNextResponse(userId)) return userId;
   }
 
   const key = await resolveAnthropicKey(req);

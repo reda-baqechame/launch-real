@@ -34,14 +34,16 @@ export async function POST(req: Request) {
     return NextResponse.json(sanitizeOperatorJob(job));
   }
 
+  let ownerUserId: string | undefined;
   if (process.env.NODE_ENV === "production") {
     const userId = await requireAuthUserId();
     if (isNextResponse(userId)) return userId;
+    ownerUserId = userId;
   }
 
   const key = await resolveAnthropicKey(req);
   if (isNextResponse(key)) return key;
 
-  const job = await runOperatorJob(body, key);
+  const job = await runOperatorJob({ ...body, ownerUserId }, key);
   return NextResponse.json(sanitizeOperatorJob(job));
 }

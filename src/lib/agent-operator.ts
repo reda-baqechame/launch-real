@@ -3,7 +3,7 @@ import { chromium, type BrowserContext, type Page } from "playwright";
 import { mkdir, readFile, rm } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
-import { AGENT_DRIVER_SYSTEM } from "@/lib/ai-prompts";
+import { FULL_OPERATOR_SYSTEM } from "@/lib/ai-prompts";
 import { sameHostname, validatePublicHttpsUrl } from "@/lib/url-safety-server";
 import {
   operatorJobId,
@@ -26,7 +26,10 @@ export interface OperatorJobRequest {
   avoid?: string[];
   stopWhen?: string;
   credentials?: OperatorCredentials;
+  ownerUserId?: string;
   approvedRiskKinds?: string[];
+  accountMode?: "none" | "use_provided" | "create_disposable";
+  disposableEmailDomain?: string;
   maxSteps?: number;
 }
 
@@ -40,6 +43,8 @@ const OPERATOR_ACTION_SCHEMA = {
     text: { type: "string" },
     url: { type: "string" },
     reason: { type: "string" },
+    observation: { type: "string" },
+    confidence: { type: "number" },
   },
   required: ["done", "reason"],
 } as const;
@@ -50,7 +55,123 @@ function riskyActionKind(input: { action?: string; selector?: string; text?: str
   if (/\b(delete|remove|destroy|archive|deactivate|close account)\b/.test(value)) return "destructive";
   if (/\b(post|publish|upload|download|oauth|connect google|connect youtube|authorize)\b/.test(value)) return "external_side_effect";
   if (/\b(settings|password|email|account|profile|team|member|permission)\b/.test(value)) return "account_change";
+  if (/\b(sign up|signup|create account|register)\b/.test(value)) return "account_creation";
   return null;
+}
+
+function redactForTrace(value: string): string {
+  return value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/(password|token|secret|api[_ -]?key)\s*[:=]\s*\S+/gi, "$1=[redacted]");
+}
+
+async function pageEvidence(page: Page): Promise<string> {
+  const title = await page.title().catch(() => "");
+  const body = await page.locator("body").innerText({ timeout: 1500 }).catch(() => "");
+  const compact = body.replace(/\s+/g, " ").slice(0, 2500);
+  return redactForTrace(`Title: ${title}\nVisible text: ${compact}`);
+}
+
+function generatedDisposableCredentials(input: OperatorJobRequest): OperatorCredentials | null {
+  if (input.accountMode !== "create_disposable") return null;
+  const domain = input.disposableEmailDomain?.trim() || "example.test";
+  return {
+    username: `launchreel-${Date.now().toString(36)}@${domain}`,
+    password: `LR-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`,
+  };
+}
+
+function credentialPrompt(input: OperatorJobRequest, runCredentials?: OperatorCredentials | null): string {
+  if (!runCredentials?.username || !runCredentials.password) return "No credentials are available. Do not attempt login or signup unless the app is usable without it.";
+  const mode =
+    input.accountMode === "create_disposable"
+      ? "A disposable test account may be created if account_creation is approved by the request."
+      : "Disposable/provided test credentials are available for login if needed.";
+  return [
+    mode,
+    "When filling username or email fields, return text exactly __LAUNCHREEL_USERNAME__.",
+    "When filling password fields, return text exactly __LAUNCHREEL_PASSWORD__.",
+    "Never write the real password or tokens in observations, reasons, URLs, reports, or narration.",
+  ].join(" ");
+}
+
+function actionFillText(text: string | undefined, runCredentials?: OperatorCredentials | null): string | undefined {
+  if (!text) return text;
+  return text
+    .replaceAll("__LAUNCHREEL_USERNAME__", runCredentials?.username ?? "")
+    .replaceAll("__LAUNCHREEL_PASSWORD__", runCredentials?.password ?? "");
+}
+
+function parseOperatorAction(raw: string): {
+  done: boolean;
+  action?: string;
+  selector?: string;
+  text?: string;
+  url?: string;
+  reason: string;
+  observation?: string;
+  confidence?: number;
+} {
+  const trimmed = raw.trim();
+  const json = trimmed.startsWith("{") ? trimmed : trimmed.match(/\{[\s\S]*\}/)?.[0];
+  if (!json) throw new Error("Operator model did not return JSON.");
+  const parsed = JSON.parse(json) as {
+    done?: boolean;
+    action?: string;
+    selector?: string;
+    text?: string;
+    url?: string;
+    reason?: string;
+    observation?: string;
+    confidence?: number;
+  };
+  return {
+    ...parsed,
+    done: Boolean(parsed.done),
+    reason: parsed.reason?.trim() || "Continue the approved product demo path.",
+    observation: parsed.observation?.trim(),
+    confidence: typeof parsed.confidence === "number" ? Math.max(0, Math.min(1, parsed.confidence)) : undefined,
+  };
+}
+
+function buildOperatorArtifacts(job: OperatorJob): Pick<OperatorJob, "appUnderstanding" | "editorBrief"> {
+  const host = (() => {
+    try {
+      return new URL(job.url).hostname;
+    } catch {
+      return "the supplied app";
+    }
+  })();
+  const doneEntries = job.actionLedger.filter((entry) => entry.status === "done");
+  const observations = doneEntries
+    .map((entry) => entry.observation || entry.reason)
+    .filter(Boolean)
+    .map((text) => redactForTrace(text))
+    .slice(0, 6);
+  const bestMoments = doneEntries
+    .filter((entry) => /click|goto|fill|scroll|wait|stop|observe/i.test(entry.action))
+    .slice(0, 5)
+    .map((entry) => `Step ${entry.step}: ${redactForTrace(entry.observation || entry.reason)}`);
+
+  return {
+    appUnderstanding: {
+      category: observations.find((text) => /dashboard|project|launch|video|editor|analytics|workspace/i.test(text)) || "Software product demo",
+      audience: job.contextLine || "Product builders and launch teams",
+      valueProp: observations[0] || job.goal,
+      keyScreens: observations.length ? observations : [job.url],
+    },
+    editorBrief: {
+      title: `Demo of ${host}`,
+      narrativeArc: `Open with the user goal, show the shortest credible workflow, then finish on the clearest visible payoff: ${job.stopWhen}`,
+      voiceDirection: "Confident, human, specific, and calm. Describe only what is visible on screen.",
+      suggestedCaptions: [
+        job.goal,
+        observations[0] || "The product value becomes visible.",
+        job.stopWhen,
+      ].map(redactForTrace),
+      bestMoments: bestMoments.length ? bestMoments : [`Step 1: ${job.goal}`],
+    },
+  };
 }
 
 async function isAllowedOperatorUrl(raw: string, startUrl: URL): Promise<boolean> {
@@ -132,6 +253,7 @@ function makeBaseJob(input: OperatorJobRequest): OperatorJob {
   return {
     id: operatorJobId(),
     status: "queued",
+    ownerUserId: input.ownerUserId,
     createdAt: now,
     updatedAt: now,
     url: input.url,
@@ -156,13 +278,39 @@ export async function runLocalFreeOperatorJob(input: OperatorJobRequest): Promis
   const job = makeBaseJob(input);
   job.status = "succeeded";
   job.actionLedger = [
-    { step: 1, action: "goto", url: input.url, reason: "Load the supplied app URL.", status: "done", tMs: 100 },
-    { step: 2, action: "observe", reason: job.goal, status: "done", tMs: 700 },
-    { step: 3, action: "stop", reason: job.stopWhen, status: "done", tMs: 1200 },
+    {
+      step: 1,
+      action: "goto",
+      url: input.url,
+      reason: "Load the supplied app URL.",
+      observation: "The app opens in the browser capture lane.",
+      confidence: 1,
+      status: "done",
+      tMs: 100,
+    },
+    {
+      step: 2,
+      action: "observe",
+      reason: job.goal,
+      observation: "The operator identifies the likely value path and avoids billing, destructive, and external side effects.",
+      confidence: 0.94,
+      status: "done",
+      tMs: 700,
+    },
+    {
+      step: 3,
+      action: "stop",
+      reason: job.stopWhen,
+      observation: "The local-free fixture has enough replayable evidence to generate narration, captions, and launch assets.",
+      confidence: 0.96,
+      status: "done",
+      tMs: 1200,
+    },
   ];
   job.screenshots = ["iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="];
   job.traceSummary = "Local-free operator fixture completed a deterministic deep-demo path.";
   job.finalReport = `Operator completed local-free demo for ${input.url}. Goal: ${job.goal}.`;
+  Object.assign(job, buildOperatorArtifacts(job));
   job.updatedAt = new Date().toISOString();
   await saveOperatorJob(job);
   return job;
@@ -175,6 +323,15 @@ export async function runOperatorJob(input: OperatorJobRequest, anthropicKey: st
   await mkdir(sessionDir, { recursive: true });
   let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
   const started = Date.now();
+  const generatedCredentials = generatedDisposableCredentials(input);
+  const runCredentials =
+    input.accountMode === "create_disposable"
+      ? generatedCredentials
+      : input.accountMode === "none"
+        ? null
+        : input.credentials;
+  const approvedRiskKinds = new Set(job.approvedRiskKinds);
+  if (input.accountMode === "create_disposable") approvedRiskKinds.add("account_creation");
 
   try {
     job.status = "running";
@@ -183,13 +340,13 @@ export async function runOperatorJob(input: OperatorJobRequest, anthropicKey: st
 
     browser = await chromium.launch({ headless: true });
     let storageState: Awaited<ReturnType<BrowserContext["storageState"]>> | undefined;
-    if (input.credentials?.username?.trim() && input.credentials.password) {
+    if (runCredentials?.username?.trim() && runCredentials.password) {
       const loginContext = await browser.newContext({ viewport: { width: 1280, height: 720 } });
       await installOperatorGate(loginContext, startUrl, job.networkLog);
       try {
         const loginPage = await loginContext.newPage();
         await loginPage.goto(startUrl.href, { waitUntil: "domcontentloaded", timeout: 30000 });
-        await tryAutoLogin(loginPage, input.credentials);
+        await tryAutoLogin(loginPage, runCredentials);
         storageState = await loginContext.storageState();
       } finally {
         await loginContext.close();
@@ -210,6 +367,7 @@ export async function runOperatorJob(input: OperatorJobRequest, anthropicKey: st
       `Goal: ${job.goal}`,
       input.instructions ? `Instructions: ${input.instructions}` : "",
       job.avoid.length ? `Avoid: ${job.avoid.join(", ")}` : "",
+      `Account mode: ${input.accountMode || (runCredentials ? "use_provided" : "none")}. ${credentialPrompt(input, runCredentials)}`,
       `Approval required for payment, destructive, external publishing/upload/download/OAuth, or account-change actions.`,
     ].filter(Boolean).join("\n");
 
@@ -227,17 +385,26 @@ export async function runOperatorJob(input: OperatorJobRequest, anthropicKey: st
       }
 
       const shot = await page.screenshot({ type: "jpeg", quality: 58 });
+      const evidence = await pageEvidence(page);
       job.screenshots.push(shot.toString("base64"));
       const message = await client.messages.create({
         model: "claude-opus-4-8",
         max_tokens: 1200,
-        system: AGENT_DRIVER_SYSTEM(planText, job.contextLine, job.stopWhen),
+        system: FULL_OPERATOR_SYSTEM(planText, job.contextLine, job.stopWhen),
         output_config: { format: { type: "json_schema", schema: OPERATOR_ACTION_SCHEMA } },
         messages: [
           {
             role: "user",
             content: [
-              { type: "text", text: `Operator step ${i + 1}. Current URL: ${page.url()}. Return the next safe action.` },
+              {
+                type: "text",
+                text: [
+                  `Operator step ${i + 1}. Current URL: ${page.url()}.`,
+                  "Visible page evidence:",
+                  evidence,
+                  "Return the next safe action. Use credential tokens only when filling login/signup fields.",
+                ].join("\n"),
+              },
               { type: "image", source: { type: "base64", media_type: "image/jpeg", data: shot.toString("base64") } },
             ],
           },
@@ -245,14 +412,14 @@ export async function runOperatorJob(input: OperatorJobRequest, anthropicKey: st
       });
       const textBlock = message.content.find((b) => b.type === "text");
       if (!textBlock || textBlock.type !== "text") break;
-      const action = JSON.parse(textBlock.text) as { done: boolean; action?: string; selector?: string; text?: string; url?: string; reason: string };
+      const action = parseOperatorAction(textBlock.text);
       const risk = riskyActionKind(action);
-      if (risk && !job.approvedRiskKinds.includes(risk)) {
+      if (risk && !approvedRiskKinds.has(risk)) {
         const approval: OperatorApprovalRequest = {
           id: `approval_${i + 1}`,
           step: i + 1,
           risk,
-          reason: action.reason,
+          reason: redactForTrace(action.reason),
           action: action.action ?? "unknown",
           createdAt: new Date().toISOString(),
         };
@@ -263,14 +430,27 @@ export async function runOperatorJob(input: OperatorJobRequest, anthropicKey: st
         await context.close();
         return job;
       }
-      if (action.done) break;
+      if (action.done) {
+        job.actionLedger.push({
+          step: i + 1,
+          action: "stop",
+          reason: redactForTrace(action.reason),
+          observation: action.observation ? redactForTrace(action.observation) : undefined,
+          confidence: action.confidence,
+          status: "done",
+          tMs: Date.now() - started,
+        });
+        break;
+      }
 
       const entry: OperatorActionEntry = {
         step: i + 1,
         action: action.action ?? "wait",
         selector: action.selector,
         url: action.url,
-        reason: action.reason,
+        reason: redactForTrace(action.reason),
+        observation: action.observation ? redactForTrace(action.observation) : undefined,
+        confidence: action.confidence,
         status: "planned",
         tMs: Date.now() - started,
       };
@@ -285,7 +465,9 @@ export async function runOperatorJob(input: OperatorJobRequest, anthropicKey: st
           await el.click({ timeout: 5000 });
           if (box) job.clicks.push({ tMs: Date.now() - started, x: (box.x + box.width / 2) / 1280, y: (box.y + box.height / 2) / 720 });
         } else if (action.action === "fill" && action.selector && action.text) {
-          await page.locator(action.selector).first().fill(action.text, { timeout: 5000 });
+          const fillText = actionFillText(action.text, runCredentials);
+          if (!fillText) throw new Error("Operator requested a credential fill without available credentials.");
+          await page.locator(action.selector).first().fill(fillText, { timeout: 5000 });
         } else if (action.action === "scroll") {
           await page.mouse.wheel(0, 650);
         } else {
@@ -312,12 +494,15 @@ export async function runOperatorJob(input: OperatorJobRequest, anthropicKey: st
     }
     job.status = job.partial ? "failed" : "succeeded";
     job.traceSummary = job.partial ? "Operator stopped with partial output." : "Operator completed the requested app task.";
+    Object.assign(job, buildOperatorArtifacts(job));
     job.finalReport = [
       `Goal: ${job.goal}`,
       `Steps completed: ${job.actionLedger.filter((a) => a.status === "done").length}/${job.actionLedger.length}`,
       `Network blocked: ${job.networkLog.filter((n) => n.status === "blocked").length}`,
+      job.appUnderstanding ? `App: ${job.appUnderstanding.valueProp}` : "",
+      job.editorBrief ? `Editor brief: ${job.editorBrief.narrativeArc}` : "",
       job.failureReason ? `Failure: ${job.failureReason}` : "Failure: none",
-    ].join("\n");
+    ].filter(Boolean).join("\n");
   } catch (e) {
     job.status = "failed";
     job.partial = true;

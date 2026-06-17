@@ -9,7 +9,7 @@ Status: enterprise-grade is not claimed until real-provider, hosted production, 
 | Local-free full test mode | Production-ready for QA | No paid keys required; deterministic mocks and smoke coverage exist. |
 | Intake: URL, recording, upload, screenshots, PRD/changelog | Beta-ready | Core flows exist; needs real-user regression matrix across browsers. |
 | Browser agent capture | Beta-ready | Secured demo capture exists; durable operator API added for heavier tasks. |
-| Full operator job API | Beta-ready | Job state, action ledger, approval requests, trace summary, cancel/read APIs, and local evals exist. Needs real-provider long-run proof. |
+| Full operator job API | Beta-ready | Job state, owner checks, action ledger, page observations, confidence, approval requests, app understanding, editor brief, cancel/read APIs, and local evals exist. Needs real-provider long-run proof. |
 | Launch Doctor audit | Beta-ready | Real Anthropic path exists; production proof requires provider key and signed-in hosted smoke. |
 | Angle and moments flow | Beta-ready | Local and AI-backed paths exist; needs larger fixture/eval coverage. |
 | Video/narration/captions/social clips | Beta-ready | Browser render works for local/beta. Enterprise paid exports should use server/cloud render. |
@@ -25,6 +25,7 @@ Status: enterprise-grade is not claimed until real-provider, hosted production, 
 ## Release-blocking enterprise gaps
 
 - Real-provider smoke cannot pass until vendor credentials are configured.
+- Paste-ready env slots are documented in `docs/API_KEYS_TO_PASTE.md`; run `npm run prepare:env` before adding secrets to `.env.local`.
 - Final unwatermarked paid exports need authenticated server/cloud rendering; browser-side renders are client-controlled previews.
 - Full operator needs long-session proof against the user's real app URL with disposable credentials.
 - Full Codex Security repository scan artifacts must be generated and release-blocking findings fixed.

@@ -15,6 +15,8 @@ export interface OperatorActionEntry {
   selector?: string;
   url?: string;
   reason: string;
+  observation?: string;
+  confidence?: number;
   status: "planned" | "done" | "blocked" | "failed";
   tMs: number;
 }
@@ -32,6 +34,7 @@ export interface OperatorApprovalRequest {
 export interface OperatorJob {
   id: string;
   status: OperatorJobStatus;
+  ownerUserId?: string;
   createdAt: string;
   updatedAt: string;
   url: string;
@@ -52,6 +55,19 @@ export interface OperatorJob {
   approvedRiskKinds: string[];
   traceSummary: string;
   finalReport?: string;
+  appUnderstanding?: {
+    category: string;
+    audience: string;
+    valueProp: string;
+    keyScreens: string[];
+  };
+  editorBrief?: {
+    title: string;
+    narrativeArc: string;
+    voiceDirection: string;
+    suggestedCaptions: string[];
+    bestMoments: string[];
+  };
 }
 
 const STORE_DIR = join(process.cwd(), ".launchreel-agent-jobs");
