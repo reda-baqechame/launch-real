@@ -16,6 +16,7 @@
     "smoke:agent-local": "powershell -ExecutionPolicy Bypass -File scripts/smoke-agent-local.ps1",
     "smoke:production-guard": "powershell -ExecutionPolicy Bypass -File scripts/smoke-production-guard.ps1",
     "smoke:real-providers": "powershell -ExecutionPolicy Bypass -File scripts/smoke-real-providers.ps1",
+    "smoke:railway": "powershell -ExecutionPolicy Bypass -File scripts/smoke-railway.ps1",
     "prepare:env": "powershell -ExecutionPolicy Bypass -File scripts/prepare-env-local.ps1",
     "test:e2e": "node scripts/e2e-agent-local.js",
     "test:agent-evals": "powershell -ExecutionPolicy Bypass -File scripts/test-agent-evals.ps1",
