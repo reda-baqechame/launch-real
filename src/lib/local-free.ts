@@ -240,6 +240,11 @@ export function localFreeDirector() {
   };
 }
 
+export function localFreeAvatar() {
+  // The client synthesizes a placeholder talking head locally in local-free mode.
+  return { requestId: "local-avatar", status: "done" as const, localFree: true };
+}
+
 export function localFreeSeedanceShot() {
   // The client synthesizes a branded placeholder clip locally in local-free
   // mode (no network / no fal.ai key needed). This marker is returned for

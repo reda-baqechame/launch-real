@@ -10,7 +10,7 @@ const RENDERS = "renders";
 interface BlobRecord {
   key: string;
   projectId: string;
-  kind: "footage" | "render" | "screenshot" | "narration" | "seedance";
+  kind: "footage" | "render" | "screenshot" | "narration" | "seedance" | "avatar";
   blob: Blob;
   createdAt: string;
 }
@@ -83,6 +83,10 @@ export function seedanceKey(projectId: string, shotId: string): string {
 
 export function deliverableKey(projectId: string, cut: string): string {
   return `render:${projectId}:cut-${cut}`;
+}
+
+export function avatarKey(projectId: string): string {
+  return `avatar:${projectId}`;
 }
 
 export function variantCutKey(projectId: string, variant: "founder" | "investor"): string {

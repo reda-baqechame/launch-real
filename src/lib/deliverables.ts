@@ -54,6 +54,7 @@ export interface DeliverableInputs {
   imageUrls?: string[];
   narrationUrl?: string | null;
   cinematicClips: CinematicClipInput[];
+  avatarClipUrl?: string;
   watermark: boolean;
   proxy?: boolean;
 }
@@ -99,6 +100,7 @@ export async function renderDeliverables(
       momentLimit: cfg.momentLimit,
       maxDurationSec: cfg.maxDurationSec,
       cinematicClips: clipsForCut(cfg, inputs.cinematicClips),
+      avatarClipUrl: inputs.avatarClipUrl,
       onProgress: (pct) => onProgress?.(cfg.cut, pct),
     });
     if (out[0]) {

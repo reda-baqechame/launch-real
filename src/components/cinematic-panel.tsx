@@ -8,7 +8,8 @@ import { useFalKey } from "@/lib/ai";
 import { usePublicConfig } from "@/lib/hosted-config";
 import { CINEMATIC_PRESETS, getPreset } from "@/lib/cinematic-presets";
 import { generateAndPolishShot } from "@/lib/cinematic";
-import { deliverableKey, getBlobUrl, saveBlob } from "@/lib/footage-store";
+import { generateAvatarPresenter } from "@/lib/avatar";
+import { avatarKey, deliverableKey, getBlobUrl, saveBlob } from "@/lib/footage-store";
 import { useFootageUrl } from "@/lib/use-footage-url";
 import { loadScreenshotUrls } from "@/lib/screenshot-loader";
 import { buildScriptFromMoments } from "@/lib/script-build";
@@ -42,6 +43,8 @@ export function CinematicPanel({ project }: { project: Project }) {
   const [error, setError] = useState<string | null>(null);
   const [making, setMaking] = useState(false);
   const [makeStatus, setMakeStatus] = useState<string>("");
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarStatus, setAvatarStatus] = useState<string>("");
 
   const shots = project.cinematicShots ?? [];
   const ready = Boolean(falKey) || cfg?.hosted || cfg?.localFree;
@@ -71,6 +74,28 @@ export function CinematicPanel({ project }: { project: Project }) {
     }
   }
 
+  async function generateAvatar() {
+    setAvatarBusy(true);
+    setError(null);
+    setAvatarStatus("starting");
+    try {
+      const clip = await generateAvatarPresenter(project.id, brand, {
+        onStatus: setAvatarStatus,
+      });
+      patchProject(project.id, { avatar: clip });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Presenter failed.");
+    } finally {
+      setAvatarBusy(false);
+      setAvatarStatus("");
+    }
+  }
+
+  function toggleAvatar() {
+    if (!project.avatar) return;
+    patchProject(project.id, { avatar: { ...project.avatar, enabled: !project.avatar.enabled } });
+  }
+
   async function resolveClips(): Promise<CinematicClipInput[]> {
     const rows = await Promise.all(
       shots.map(async (s) => {
@@ -92,6 +117,10 @@ export function CinematicPanel({ project }: { project: Project }) {
       const imageUrls = project.footage?.screenshotKeys?.length
         ? await loadScreenshotUrls(project.footage.screenshotKeys)
         : [];
+      const avatarClipUrl =
+        project.avatar?.enabled
+          ? (await getBlobUrl(avatarKey(project.id), "avatar")) ?? undefined
+          : undefined;
       const inputs: DeliverableInputs = {
         footageUrl: footageUrl ?? "",
         clicks: project.footage?.clicks,
@@ -100,6 +129,7 @@ export function CinematicPanel({ project }: { project: Project }) {
         brand,
         imageUrls: imageUrls.length ? imageUrls : undefined,
         cinematicClips,
+        avatarClipUrl,
         watermark: applyWatermark,
         proxy: true,
       };
@@ -165,6 +195,30 @@ export function CinematicPanel({ project }: { project: Project }) {
         ))}
       </div>
 
+      <Card className="space-y-3 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-ink">AI presenter (talking head)</p>
+            <p className="mt-1 text-xs text-ink-mute">
+              A lip-synced spokesperson delivering your script, composited as a picture-in-picture.
+              {cfg?.localFree && " Local-free renders a branded placeholder presenter."}
+            </p>
+          </div>
+          <Button size="sm" disabled={!ready || avatarBusy} onClick={() => void generateAvatar()}>
+            {avatarBusy ? avatarStatus || "Generating…" : project.avatar ? "Regenerate" : "Add presenter"}
+          </Button>
+        </div>
+        {project.avatar && (
+          <div className="flex items-center gap-3">
+            <AvatarPreview blobKey={project.avatar.blobKey} />
+            <label className="flex items-center gap-2 text-xs text-ink-soft">
+              <input type="checkbox" checked={project.avatar.enabled} onChange={toggleAvatar} />
+              Include presenter in deliverables
+            </label>
+          </div>
+        )}
+      </Card>
+
       {shots.length > 0 && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -199,7 +253,7 @@ export function CinematicPanel({ project }: { project: Project }) {
   );
 }
 
-function useBlobUrl(blobKey: string, kind: "seedance" | "render") {
+function useBlobUrl(blobKey: string, kind: "seedance" | "render" | "avatar") {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let revoke: string | null = null;
@@ -246,6 +300,16 @@ function ShotCard({ shot }: { shot: SeedanceClip }) {
         )}
       </div>
     </Card>
+  );
+}
+
+function AvatarPreview({ blobKey }: { blobKey: string }) {
+  const url = useBlobUrl(blobKey, "avatar");
+  if (!url) {
+    return <div className="size-16 rounded-full bg-base" />;
+  }
+  return (
+    <video src={url} autoPlay loop muted playsInline className="size-16 rounded-full bg-black object-cover" />
   );
 }
 

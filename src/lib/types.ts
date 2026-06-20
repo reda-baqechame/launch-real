@@ -115,6 +115,18 @@ export interface Project {
   cinematicShots?: SeedanceClip[];
   /** Rendered flagship deliverables (hero / ads / pitch cuts). */
   deliverables?: DeliverableRender[];
+  /** AI presenter (talking-head) clip + whether to composite it into renders. */
+  avatar?: AvatarClip;
+}
+
+/** A talking-head AI presenter clip stored in IndexedDB. */
+export interface AvatarClip {
+  id: string;
+  style: string;
+  blobKey: string;
+  createdAt: string;
+  /** Composite as picture-in-picture in renders. */
+  enabled: boolean;
 }
 
 export type DeliverableCut = "hero" | "ads" | "pitch";

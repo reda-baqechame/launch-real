@@ -116,6 +116,8 @@ export interface ProductVideoStudioProps {
   maxDurationSec?: number;
   momentLimit?: number;
   cinematicClips?: CinematicClipInput[];
+  /** AI presenter clip URL to composite as picture-in-picture. */
+  avatarClipUrl?: string;
   onProgress?: (pct: number) => void;
   onComplete?: (results: RenderResult[]) => void;
 }
@@ -299,7 +301,41 @@ interface RenderAspectOpts {
   cinematicWindows?: CinematicWindow[];
   fontFamily?: string;
   clicks?: ClickEvent[];
+  avatarVideo?: HTMLVideoElement | null;
   onFrame?: (frame: number, totalFrames: number) => void;
+}
+
+/** Draw a circular picture-in-picture presenter in the bottom-right corner. */
+function drawAvatarPiP(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  w: number,
+  h: number,
+  accent: string,
+) {
+  if (!video.videoWidth) return;
+  const d = Math.round(Math.min(w, h) * 0.24);
+  const margin = Math.round(Math.min(w, h) * 0.05);
+  const cx = w - margin - d / 2;
+  const cy = h - margin - d / 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, d / 2, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+  // cover-fit the video into the circle's bounding box
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  const cover = Math.max(d / vw, d / vh);
+  const dw = vw * cover;
+  const dh = vh * cover;
+  ctx.drawImage(video, cx - dw / 2, cy - dh / 2, dw, dh);
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(cx, cy, d / 2, 0, Math.PI * 2);
+  ctx.lineWidth = Math.max(2, d * 0.03);
+  ctx.strokeStyle = accent;
+  ctx.stroke();
 }
 
 async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
@@ -323,6 +359,7 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
     cinematicWindows = [],
     fontFamily = "system-ui, sans-serif",
     clicks = [],
+    avatarVideo = null,
     onFrame,
   } = opts;
 
@@ -389,6 +426,17 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
   const totalFrames = Math.ceil(totalSec * FPS);
   let lastSourceTime = -1;
   let activeCine: HTMLVideoElement | null = null;
+
+  if (avatarVideo) {
+    avatarVideo.muted = true;
+    avatarVideo.loop = true;
+    try {
+      avatarVideo.currentTime = 0;
+    } catch {
+      /* not seekable yet */
+    }
+    void avatarVideo.play().catch(() => {});
+  }
 
   for (let f = 0; f < totalFrames; f++) {
     const tSec = f / FPS;
@@ -465,6 +513,7 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
         }
 
         drawKaraokeCaptions(ctx, karaokeWindow(captions, tSec), w, h, brand.accentColor, fontFamily);
+        if (avatarVideo) drawAvatarPiP(ctx, avatarVideo, w, h, brand.accentColor);
       } else {
         ctx.fillStyle = brand.backgroundColor;
         ctx.fillRect(0, 0, w, h);
@@ -476,6 +525,7 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
 
   recorder.stop();
   mixSource.stop();
+  if (avatarVideo) avatarVideo.pause();
   await audioCtx.close();
   return done;
 }
@@ -662,6 +712,23 @@ export async function renderProductVideo(
   const captions = wordCaptions(captionLines);
   // Load the brand font once so every aspect renders with it.
   const fontFamily = await ensureBrandFont(brand.font);
+
+  // Load the AI presenter clip once for picture-in-picture compositing.
+  let avatarVideo: HTMLVideoElement | null = null;
+  if (opts.avatarClipUrl) {
+    avatarVideo = document.createElement("video");
+    avatarVideo.src = opts.avatarClipUrl;
+    avatarVideo.muted = true;
+    avatarVideo.playsInline = true;
+    avatarVideo.loop = true;
+    await new Promise<void>((resolve) => {
+      avatarVideo!.onloadeddata = () => resolve();
+      avatarVideo!.onerror = () => resolve();
+      if (avatarVideo!.readyState >= 2) resolve();
+      setTimeout(resolve, 4000);
+    });
+  }
+
   const results: RenderResult[] = [];
 
   for (let ai = 0; ai < aspects.length; ai++) {
@@ -687,6 +754,7 @@ export async function renderProductVideo(
       cinematicWindows,
       fontFamily,
       clicks,
+      avatarVideo,
       onFrame: (frame, totalFrames) => {
         const overall = ((ai + frame / totalFrames) / aspects.length) * 100;
         opts.onProgress?.(Math.round(overall));
