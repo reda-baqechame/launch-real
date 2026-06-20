@@ -128,6 +128,14 @@ Social clip captions (per id):
 - Under 200 chars. Platform-native. Must make sense MUTED — describe what viewer sees.
 - Clip 1 = problem hook, Clip 2 = product magic, Clip 3 = CTA`;
 
+export const DECK_SYSTEM = `${PROMPT_PREAMBLE}
+
+You write a tight pitch/presentation deck for a software product. Produce 6-8
+slides that tell a clear story: title → problem → solution → how it works (1-2) →
+proof/why-now → call to action. Each slide: a sharp title (no hype) and 2-4
+concrete bullets (short, specific, muted-first). First slide kind "title", last
+slide kind "cta", the rest "point". No emoji, no buzzwords.`;
+
 export const BRAND_SYSTEM = `${PROMPT_PREAMBLE}
 
 You extract a brand kit from a software product's homepage. You may be shown the

@@ -240,6 +240,31 @@ export function localFreeDirector() {
   };
 }
 
+export function localFreeDeck(input?: { productName?: string; oneLiner?: string; hook?: string }) {
+  const name = input?.productName || "Your Product";
+  return {
+    slides: [
+      { kind: "title", title: name, bullets: [input?.hook || "Show your software, beautifully."] },
+      {
+        kind: "point",
+        title: "The problem",
+        bullets: ["Great software is hard to show.", "Demos take days and look amateur."],
+      },
+      {
+        kind: "point",
+        title: "What it is",
+        bullets: [input?.oneLiner || `${name} turns your product into a polished launch video.`],
+      },
+      {
+        kind: "point",
+        title: "How it works",
+        bullets: ["Record or paste a URL", "AI scripts + cinematic shots", "Export hero, ad, and pitch cuts"],
+      },
+      { kind: "cta", title: "Get started", bullets: ["Make your launch kit today."] },
+    ],
+  };
+}
+
 export function localFreeAvatar() {
   // The client synthesizes a placeholder talking head locally in local-free mode.
   return { requestId: "local-avatar", status: "done" as const, localFree: true };

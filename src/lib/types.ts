@@ -117,6 +117,14 @@ export interface Project {
   deliverables?: DeliverableRender[];
   /** AI presenter (talking-head) clip + whether to composite it into renders. */
   avatar?: AvatarClip;
+  /** Generated slide deck (pitch / webinar / keynote). */
+  deck?: Slide[];
+}
+
+export interface Slide {
+  title: string;
+  bullets: string[];
+  kind: "title" | "point" | "cta";
 }
 
 /** A talking-head AI presenter clip stored in IndexedDB. */

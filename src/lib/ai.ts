@@ -8,6 +8,7 @@ import type {
   DirectorScore,
   GeneratedCaptions,
   JudgeScores,
+  Slide,
   StoryRole,
   VideoScript,
 } from "./types";
@@ -404,6 +405,25 @@ export async function fetchDirectorCritique(input: {
   });
   if (!res.ok) await parseApiError(res, "Director critique failed");
   return (await res.json()) as DirectorScore;
+}
+
+export async function fetchDeck(input: {
+  productName: string;
+  oneLiner?: string;
+  hook?: string;
+  cta?: string;
+  audience?: string;
+  moments?: string[];
+  weakestPoint?: string;
+}): Promise<{ slides: Slide[] }> {
+  await assertAiReady();
+  const res = await fetch("/api/deck", {
+    method: "POST",
+    headers: await aiJsonHeaders(),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) await parseApiError(res, "Deck failed");
+  return (await res.json()) as { slides: Slide[] };
 }
 
 export async function fetchBrandExtract(url: string): Promise<Partial<BrandKit>> {
