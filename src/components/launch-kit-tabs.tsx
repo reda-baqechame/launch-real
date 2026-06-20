@@ -26,6 +26,7 @@ import { shouldWatermark } from "@/lib/watermark-policy";
 import { loadScreenshotUrls } from "@/lib/screenshot-loader";
 import { LocalizeTab } from "@/components/localize-tab";
 import { CinematicPanel } from "@/components/cinematic-panel";
+import { TimelineEditor } from "@/components/timeline-editor";
 import { fetchRewrite } from "@/lib/ai";
 import { useAiEnabled, usePublicConfig } from "@/lib/hosted-config";
 import { voiceChipToMode } from "@/lib/voice-chip-map";
@@ -33,6 +34,7 @@ import type { LaunchAsset, Project, VideoScript } from "@/lib/types";
 
 const TABS = [
   "Video",
+  "Editor",
   "Cinematic",
   "Product Hunt",
   "Social Clips",
@@ -180,6 +182,8 @@ export function LaunchKitTabs({ project }: { project: Project }) {
 
       <div className="mt-6">
         {tab === "Video" && <VideoTab project={project} />}
+
+        {tab === "Editor" && <TimelineEditor project={project} />}
 
         {tab === "Cinematic" && <CinematicPanel project={project} />}
 
