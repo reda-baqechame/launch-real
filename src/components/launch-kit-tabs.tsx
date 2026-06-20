@@ -24,6 +24,7 @@ import { useCredits } from "@/lib/use-credits";
 import { shouldWatermark } from "@/lib/watermark-policy";
 import { loadScreenshotUrls } from "@/lib/screenshot-loader";
 import { LocalizeTab } from "@/components/localize-tab";
+import { CinematicPanel } from "@/components/cinematic-panel";
 import { fetchRewrite } from "@/lib/ai";
 import { useAiEnabled, usePublicConfig } from "@/lib/hosted-config";
 import { voiceChipToMode } from "@/lib/voice-chip-map";
@@ -31,6 +32,7 @@ import type { LaunchAsset, Project, VideoScript } from "@/lib/types";
 
 const TABS = [
   "Video",
+  "Cinematic",
   "Product Hunt",
   "Social Clips",
   "Copy",
@@ -177,6 +179,8 @@ export function LaunchKitTabs({ project }: { project: Project }) {
 
       <div className="mt-6">
         {tab === "Video" && <VideoTab project={project} />}
+
+        {tab === "Cinematic" && <CinematicPanel project={project} />}
 
         {tab === "Product Hunt" && (
           <Section title="Product Hunt kit" hint="Gallery, poster, screenshots, and copy — ordered for clarity.">

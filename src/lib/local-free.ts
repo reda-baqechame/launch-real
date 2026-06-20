@@ -200,6 +200,13 @@ export function localFreeRecap(input?: { notes?: string; durationSec?: number })
   };
 }
 
+export function localFreeSeedanceShot() {
+  // The client synthesizes a branded placeholder clip locally in local-free
+  // mode (no network / no fal.ai key needed). This marker is returned for
+  // direct API testing.
+  return { requestId: "local-seedance", status: "done" as const, localFree: true };
+}
+
 export function localFreeAgentPlan(input?: { goal?: string; avoid?: string[]; stopWhen?: string }) {
   return {
     steps: [

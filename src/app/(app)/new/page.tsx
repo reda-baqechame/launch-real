@@ -10,7 +10,18 @@ import { useStore } from "@/lib/store";
 import { AgentCapturePanel } from "@/components/agent-capture";
 import { MediaIntake } from "@/components/media-intake";
 import { PhDraftIntake } from "@/components/ph-draft-intake";
-import { clearKey, clearTtsKey, fetchAudit, setKey, setTtsKey, useAnthropicKey, useTtsKey } from "@/lib/ai";
+import {
+  clearFalKey,
+  clearKey,
+  clearTtsKey,
+  fetchAudit,
+  setFalKey,
+  setKey,
+  setTtsKey,
+  useAnthropicKey,
+  useFalKey,
+  useTtsKey,
+} from "@/lib/ai";
 import { usePublicConfig, useAiEnabled } from "@/lib/hosted-config";
 import { saveRecordingFootage, saveScreenshotFootage } from "@/lib/footage-intake";
 import { buildRecordReturnUrl } from "@/lib/record-return";
@@ -72,6 +83,7 @@ function NewProjectPageInner({ resumeProject }: { resumeProject: Project | null 
   const { createProject, attachFootage, patchProject, getProject } = useStore();
   const aiKey = useAnthropicKey();
   const ttsKey = useTtsKey();
+  const falKey = useFalKey();
   const publicConfig = usePublicConfig();
   const aiEnabled = useAiEnabled();
   const [showAgent, setShowAgent] = useState(false);
@@ -364,6 +376,7 @@ function NewProjectPageInner({ resumeProject }: { resumeProject: Project | null 
 
         {!publicConfig?.hosted && !publicConfig?.localFree && <AiConnect connected={!!aiKey} />}
         {!publicConfig?.hosted && !publicConfig?.localFree && <TtsConnect connected={!!ttsKey} />}
+        {!publicConfig?.hosted && !publicConfig?.localFree && <FalConnect connected={!!falKey} />}
 
         <HostedAiBanner />
 
@@ -408,6 +421,71 @@ function NewProjectPageInner({ resumeProject }: { resumeProject: Project | null 
 }
 
 /** Optional bring-your-own-key panel that powers the real Launch Doctor. */
+function FalConnect({ connected }: { connected: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+
+  return (
+    <div className="mt-4 rounded-xl border border-line bg-surface-2 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className={cn("size-2 rounded-full", connected ? "bg-good" : "bg-ink-faint")} aria-hidden />
+          <p className="text-sm font-medium text-ink">
+            {connected ? "Cinematic engine connected" : "Cinematic AI shots (optional — fal.ai / Seedance)"}
+          </p>
+        </div>
+        {connected ? (
+          <button onClick={() => clearFalKey()} className="text-xs text-ink-mute hover:text-ink" type="button">
+            Disconnect
+          </button>
+        ) : (
+          <button
+            onClick={() => setOpen((o) => !o)}
+            className="text-xs text-accent-ink hover:text-accent-soft"
+            type="button"
+            aria-expanded={open}
+          >
+            {open ? "Cancel" : "Connect"}
+          </button>
+        )}
+      </div>
+      {connected ? (
+        <p className="mt-1.5 text-xs text-ink-mute">
+          Generate cinematic intros, b-roll, and transitions with Seedance — on-brand, from your own screens.
+        </p>
+      ) : open ? (
+        <div className="mt-3 space-y-2">
+          <input
+            id="fal-key"
+            type="password"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="fal-… (from fal.ai/dashboard/keys)"
+            aria-label="fal.ai API key"
+            autoComplete="off"
+            className="w-full rounded-lg border border-line bg-base px-3 py-2 text-sm"
+          />
+          <Button
+            size="sm"
+            disabled={!value.trim()}
+            onClick={() => {
+              setFalKey(value);
+              setValue("");
+              setOpen(false);
+            }}
+          >
+            Save fal.ai key
+          </Button>
+        </div>
+      ) : (
+        <p className="mt-1.5 text-xs text-ink-mute">
+          Without a key, cinematic shots render as branded previews so you can design the edit first.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AiConnect({ connected }: { connected: boolean }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");

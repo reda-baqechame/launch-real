@@ -10,7 +10,7 @@ const RENDERS = "renders";
 interface BlobRecord {
   key: string;
   projectId: string;
-  kind: "footage" | "render" | "screenshot" | "narration";
+  kind: "footage" | "render" | "screenshot" | "narration" | "seedance";
   blob: Blob;
   createdAt: string;
 }
@@ -75,6 +75,10 @@ export function narrationKey(projectId: string): string {
 
 export function teaserGifKey(projectId: string): string {
   return `gif:${projectId}`;
+}
+
+export function seedanceKey(projectId: string, shotId: string): string {
+  return `seedance:${projectId}:${shotId}`;
 }
 
 export function variantCutKey(projectId: string, variant: "founder" | "investor"): string {
