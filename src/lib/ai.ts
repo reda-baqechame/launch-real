@@ -407,6 +407,22 @@ export async function fetchDirectorCritique(input: {
   return (await res.json()) as DirectorScore;
 }
 
+export async function fetchTranslate(input: {
+  hook: string;
+  cta: string;
+  lines: string[];
+  language: string;
+}): Promise<{ hook: string; cta: string; lines: string[] }> {
+  await assertAiReady();
+  const res = await fetch("/api/translate", {
+    method: "POST",
+    headers: await aiJsonHeaders(),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) await parseApiError(res, "Translate failed");
+  return (await res.json()) as { hook: string; cta: string; lines: string[] };
+}
+
 export async function fetchDeck(input: {
   productName: string;
   oneLiner?: string;

@@ -240,6 +240,21 @@ export function localFreeDirector() {
   };
 }
 
+export function localFreeTranslate(input?: {
+  hook?: string;
+  cta?: string;
+  lines?: string[];
+  language?: string;
+}) {
+  const tag = (input?.language || "ES").slice(0, 2).toUpperCase();
+  const t = (s?: string) => (s ? `[${tag}] ${s}` : "");
+  return {
+    hook: t(input?.hook),
+    cta: t(input?.cta),
+    lines: (input?.lines ?? []).map((l) => t(l)),
+  };
+}
+
 export function localFreeDeck(input?: { productName?: string; oneLiner?: string; hook?: string }) {
   const name = input?.productName || "Your Product";
   return {
