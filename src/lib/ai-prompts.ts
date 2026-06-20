@@ -128,6 +128,19 @@ Social clip captions (per id):
 - Under 200 chars. Platform-native. Must make sense MUTED — describe what viewer sees.
 - Clip 1 = problem hook, Clip 2 = product magic, Clip 3 = CTA`;
 
+export const BRAND_SYSTEM = `${PROMPT_PREAMBLE}
+
+You extract a brand kit from a software product's homepage. You may be shown the
+site's hero/OG image plus its theme-color and product name. Return:
+- primaryColor, accentColor, backgroundColor: valid 6-digit hex (#RRGGBB) that
+  match the site's REAL palette. backgroundColor is the dominant canvas (often a
+  near-black or near-white). primary = the brand's signature color; accent = a
+  complementary highlight. Prefer the theme-color when it's a strong brand hue.
+- font: a single best-guess font family name (e.g. "Inter", "Geist", "Söhne").
+- logoText: the product name as a clean wordmark (no tagline, no "| Product Hunt").
+- voice: the closest of Founder, Marketer, Technical, Investor.
+Match what you actually see — do not invent unrelated colors. No hype.`;
+
 export const DIRECTOR_SYSTEM = `${PROMPT_PREAMBLE}
 
 You are LaunchReel Creative Director — the gate before a cinematic shot ships.

@@ -200,6 +200,30 @@ export function localFreeRecap(input?: { notes?: string; durationSec?: number })
   };
 }
 
+export function localFreeBrandExtract(url?: string) {
+  let logoText = "Your Product";
+  try {
+    if (url?.trim()) {
+      const host = new URL(url.startsWith("http") ? url : `https://${url}`).hostname.replace(
+        /^www\./,
+        "",
+      );
+      const base = host.split(".")[0] || host;
+      logoText = base.charAt(0).toUpperCase() + base.slice(1);
+    }
+  } catch {
+    /* keep default */
+  }
+  return {
+    logoText,
+    primaryColor: "#6E56F7",
+    accentColor: "#8A78F9",
+    backgroundColor: "#0A0A0B",
+    font: "Geist",
+    voice: "Founder" as const,
+  };
+}
+
 export function localFreeDirector() {
   return {
     motion: 88,

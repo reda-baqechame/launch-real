@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import type {
   AiAudit,
+  BrandKit,
   DemoMoment,
   DirectorScore,
   GeneratedCaptions,
@@ -403,6 +404,17 @@ export async function fetchDirectorCritique(input: {
   });
   if (!res.ok) await parseApiError(res, "Director critique failed");
   return (await res.json()) as DirectorScore;
+}
+
+export async function fetchBrandExtract(url: string): Promise<Partial<BrandKit>> {
+  await assertAiReady();
+  const res = await fetch("/api/brand-extract", {
+    method: "POST",
+    headers: await aiJsonHeaders(),
+    body: JSON.stringify({ url }),
+  });
+  if (!res.ok) await parseApiError(res, "Brand extraction failed");
+  return (await res.json()) as Partial<BrandKit>;
 }
 
 export type SeedanceMode = "text-to-video" | "image-to-video" | "first-last-frame";

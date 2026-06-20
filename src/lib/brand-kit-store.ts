@@ -50,6 +50,16 @@ export function saveBrandKit(kit: BrandKit): void {
 export function getBrandKit(): BrandKit {  return getSnapshot();
 }
 
+/** True when the kit still matches the defaults (never customized by the user). */
+export function isDefaultBrandKit(kit: BrandKit = getSnapshot()): boolean {
+  return (
+    kit.logoText === DEFAULT_BRAND_KIT.logoText &&
+    kit.primaryColor === DEFAULT_BRAND_KIT.primaryColor &&
+    kit.accentColor === DEFAULT_BRAND_KIT.accentColor &&
+    kit.backgroundColor === DEFAULT_BRAND_KIT.backgroundColor
+  );
+}
+
 export function useBrandKit(): BrandKit {
   return useSyncExternalStore(subscribe, getSnapshot, () => DEFAULT_BRAND_KIT);
 }
