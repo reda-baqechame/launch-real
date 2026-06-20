@@ -528,17 +528,103 @@ export function drawZoomedFrame(
   ctx.drawImage(video, sx, sy, sw, sh, 0, 0, destW, destH);
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return `rgba(0,0,0,${alpha})`;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
+/** The inset rect where framed footage is drawn (padding around the screen). */
+export function footageInset(w: number, h: number): { x: number; y: number; w: number; h: number; r: number; pad: number } {
+  const pad = Math.round(Math.min(w, h) * 0.05);
+  const iw = w - pad * 2;
+  const ih = h - pad * 2;
+  return { x: pad, y: pad, w: iw, h: ih, r: Math.round(Math.min(iw, ih) * 0.03), pad };
+}
+
+/**
+ * Draw the screen recording with a Screen-Studio-style frame: brand-gradient
+ * background, padding, rounded corners, and a soft drop shadow. `zoom` crops the
+ * source the same way `drawZoomedFrame` does (cursor-follow zoom preserved).
+ */
+export function drawFramedFootage(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  zoom: { x: number; y: number; scale: number },
+  w: number,
+  h: number,
+  bg: string,
+  primary: string,
+) {
+  // Background + subtle brand vignette.
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, hexToRgba(primary, 0.16));
+  grad.addColorStop(0.5, hexToRgba(primary, 0.04));
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  const ins = footageInset(w, h);
+
+  // Drop shadow behind the screen panel.
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = Math.round(ins.pad * 0.9);
+  ctx.shadowOffsetY = Math.round(ins.pad * 0.3);
+  ctx.fillStyle = "#000000";
+  roundRect(ctx, ins.x, ins.y, ins.w, ins.h, ins.r);
+  ctx.fill();
+  ctx.restore();
+
+  // Clip to rounded panel and draw the zoomed footage crop inside.
+  ctx.save();
+  roundRect(ctx, ins.x, ins.y, ins.w, ins.h, ins.r);
+  ctx.clip();
+  const vw = video.videoWidth || ins.w;
+  const vh = video.videoHeight || ins.h;
+  const sw = vw / zoom.scale;
+  const sh = vh / zoom.scale;
+  const sx = Math.max(0, Math.min(vw - sw, zoom.x * vw - sw / 2));
+  const sy = Math.max(0, Math.min(vh - sh, zoom.y * vh - sh / 2));
+  ctx.drawImage(video, sx, sy, sw, sh, ins.x, ins.y, ins.w, ins.h);
+  ctx.restore();
+}
+
+/** Expanding ring at a click point (cx,cy in canvas px), progress 0→1. */
+export function drawClickRipple(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  progress: number,
+  maxRadius: number,
+  accent: string,
+) {
+  const p = Math.max(0, Math.min(1, progress));
+  ctx.save();
+  ctx.globalAlpha = (1 - p) * 0.6;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = Math.max(2, maxRadius * 0.06);
+  ctx.beginPath();
+  ctx.arc(cx, cy, maxRadius * p, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function drawCaptionBar(
   ctx: CanvasRenderingContext2D,
   text: string,
   w: number,
   h: number,
   primaryColor: string,
+  fontFamily = "system-ui, sans-serif",
 ) {
   if (!text.trim()) return;
   const pad = Math.round(h * 0.04);
   const fontSize = Math.round(h * 0.045);
-  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+  ctx.font = `600 ${fontSize}px ${fontFamily}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
@@ -601,13 +687,14 @@ export function drawIntroCard(
   h: number,
   primary: string,
   bg: string,
+  fontFamily = "system-ui, sans-serif",
 ) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = primary;
   ctx.fillRect(0, 0, w, 6);
   const fontSize = Math.round(h * 0.07);
-  ctx.font = `700 ${fontSize}px system-ui, sans-serif`;
+  ctx.font = `700 ${fontSize}px ${fontFamily}`;
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -625,20 +712,168 @@ export function drawOutroCard(
   primary: string,
   bg: string,
   watermark: boolean,
+  fontFamily = "system-ui, sans-serif",
 ) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = primary;
   ctx.fillRect(0, h - 6, w, 6);
   const fontSize = Math.round(h * 0.055);
-  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+  ctx.font = `600 ${fontSize}px ${fontFamily}`;
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(cta, w / 2, h / 2 - (watermark ? 20 : 0));
   if (watermark) {
-    ctx.font = `400 ${Math.round(h * 0.028)}px system-ui, sans-serif`;
+    ctx.font = `400 ${Math.round(h * 0.028)}px ${fontFamily}`;
     ctx.fillStyle = "rgba(255,255,255,0.5)";
     ctx.fillText("Made with LaunchReel", w / 2, h / 2 + fontSize);
   }
+}
+
+export interface KaraokeWord {
+  text: string;
+  state: "past" | "active" | "future";
+}
+
+/** A window of caption words around the current time, for karaoke rendering. */
+export function karaokeWindow(
+  captions: WordCaption[],
+  tSec: number,
+  count = 6,
+): KaraokeWord[] {
+  if (!captions.length) return [];
+  let live = -1;
+  let lastPassed = -1;
+  for (let i = 0; i < captions.length; i++) {
+    if (tSec >= captions[i].startSec && tSec < captions[i].endSec) live = i;
+    if (captions[i].endSec <= tSec) lastPassed = i;
+  }
+  const activeMark = live !== -1 ? live : lastPassed;
+  if (activeMark === -1) return [];
+
+  const half = Math.floor(count / 2);
+  const end = Math.min(captions.length, Math.max(activeMark + half + 1, count));
+  const start = Math.max(0, end - count);
+  const out: KaraokeWord[] = [];
+  for (let i = start; i < end; i++) {
+    out.push({
+      text: captions[i].text,
+      state: i === activeMark ? "active" : i < activeMark ? "past" : "future",
+    });
+  }
+  return out;
+}
+
+/** Draw word-by-word karaoke captions with the active word highlighted. */
+export function drawKaraokeCaptions(
+  ctx: CanvasRenderingContext2D,
+  words: KaraokeWord[],
+  w: number,
+  h: number,
+  accentColor: string,
+  fontFamily = "system-ui, sans-serif",
+) {
+  if (!words.length) return;
+  const fontSize = Math.round(h * 0.05);
+  const weight = 700;
+  ctx.font = `${weight} ${fontSize}px ${fontFamily}`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+
+  const spaceW = ctx.measureText(" ").width;
+  const maxW = w * 0.84;
+
+  // Greedy-wrap into up to 2 lines.
+  const lines: KaraokeWord[][] = [[]];
+  let lineW = 0;
+  for (const word of words) {
+    const wW = ctx.measureText(word.text).width;
+    if (lineW + wW > maxW && lines[lines.length - 1].length > 0) {
+      if (lines.length >= 2) break;
+      lines.push([]);
+      lineW = 0;
+    }
+    lines[lines.length - 1].push(word);
+    lineW += wW + spaceW;
+  }
+
+  const lineH = fontSize * 1.3;
+  const pad = Math.round(h * 0.035);
+  const boxH = lines.length * lineH + pad * 2;
+  const boxY = h - boxH - pad * 1.5;
+
+  ctx.fillStyle = "rgba(0,0,0,0.66)";
+  roundRect(ctx, w * 0.06, boxY, w * 0.88, boxH, 14);
+  ctx.fill();
+
+  lines.forEach((line, li) => {
+    const widths = line.map((wd) => ctx.measureText(wd.text).width);
+    const total = widths.reduce((a, b) => a + b, 0) + spaceW * (line.length - 1);
+    let x = (w - total) / 2;
+    const y = boxY + pad + lineH * (li + 0.5);
+    line.forEach((wd, i) => {
+      if (wd.state === "active") {
+        ctx.fillStyle = accentColor;
+      } else if (wd.state === "past") {
+        ctx.fillStyle = "#ffffff";
+      } else {
+        ctx.fillStyle = "rgba(255,255,255,0.42)";
+      }
+      ctx.fillText(wd.text, x, y);
+      x += widths[i] + spaceW;
+    });
+  });
+}
+
+/** Build a canvas font stack from a brand family with safe fallbacks. */
+export function fontStack(family?: string): string {
+  const f = (family || "").trim();
+  if (!f || /system-ui/i.test(f)) return "system-ui, sans-serif";
+  return `'${f.replace(/['"]/g, "")}', system-ui, sans-serif`;
+}
+
+/**
+ * Ensure a brand web font is loaded before canvas rendering. If it's not already
+ * available, inject a Google Fonts stylesheet and wait (best-effort, timed out).
+ * Returns a canvas font stack to use; falls back to system-ui on any failure.
+ */
+export async function ensureBrandFont(family?: string): Promise<string> {
+  const f = (family || "").trim();
+  const stack = fontStack(f);
+  if (!f || /system-ui/i.test(f) || typeof document === "undefined" || !document.fonts) {
+    return stack;
+  }
+  try {
+    if (!document.fonts.check(`600 16px '${f}'`)) {
+      const id = `lr-font-${f.replace(/\W+/g, "-").toLowerCase()}`;
+      if (!document.getElementById(id)) {
+        const link = document.createElement("link");
+        link.id = id;
+        link.rel = "stylesheet";
+        link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@400;600;700&display=swap`;
+        document.head.appendChild(link);
+      }
+      await Promise.race([
+        Promise.all([
+          document.fonts.load(`400 16px '${f}'`),
+          document.fonts.load(`600 16px '${f}'`),
+          document.fonts.load(`700 16px '${f}'`),
+        ]).then(() => document.fonts.ready),
+        new Promise((r) => setTimeout(r, 2500)),
+      ]);
+    }
+  } catch {
+    /* fall back to system-ui */
+  }
+  return stack;
+}
+
+/** Map a recorder MIME type to a file extension. */
+export function extForMimeType(mime?: string): string {
+  if (!mime) return "webm";
+  if (mime.includes("mp4")) return "mp4";
+  if (mime.includes("webm")) return "webm";
+  if (mime.includes("quicktime")) return "mov";
+  return "webm";
 }

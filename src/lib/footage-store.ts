@@ -10,7 +10,7 @@ const RENDERS = "renders";
 interface BlobRecord {
   key: string;
   projectId: string;
-  kind: "footage" | "render" | "screenshot" | "narration" | "seedance";
+  kind: "footage" | "render" | "screenshot" | "narration" | "seedance" | "avatar";
   blob: Blob;
   createdAt: string;
 }
@@ -85,6 +85,10 @@ export function deliverableKey(projectId: string, cut: string): string {
   return `render:${projectId}:cut-${cut}`;
 }
 
+export function avatarKey(projectId: string): string {
+  return `avatar:${projectId}`;
+}
+
 export function variantCutKey(projectId: string, variant: "founder" | "investor"): string {
   return `render:${projectId}:cut-${variant}`;
 }
@@ -114,6 +118,15 @@ export async function getBlob(key: string, kind: BlobRecord["kind"] = "footage")
 export async function getBlobUrl(key: string, kind: BlobRecord["kind"] = "footage"): Promise<string | null> {
   const blob = await getBlob(key, kind);
   return blob ? URL.createObjectURL(blob) : null;
+}
+
+export async function deleteBlob(key: string, kind: BlobRecord["kind"] = "footage"): Promise<void> {
+  const store = kind === "render" ? RENDERS : BLOBS;
+  try {
+    await tx(store, "readwrite", (s) => s.delete(key));
+  } catch {
+    /* best-effort cleanup */
+  }
 }
 
 export async function deleteProjectFootage(projectId: string): Promise<void> {

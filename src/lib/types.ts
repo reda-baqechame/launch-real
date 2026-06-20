@@ -115,6 +115,26 @@ export interface Project {
   cinematicShots?: SeedanceClip[];
   /** Rendered flagship deliverables (hero / ads / pitch cuts). */
   deliverables?: DeliverableRender[];
+  /** AI presenter (talking-head) clip + whether to composite it into renders. */
+  avatar?: AvatarClip;
+  /** Generated slide deck (pitch / webinar / keynote). */
+  deck?: Slide[];
+}
+
+export interface Slide {
+  title: string;
+  bullets: string[];
+  kind: "title" | "point" | "cta";
+}
+
+/** A talking-head AI presenter clip stored in IndexedDB. */
+export interface AvatarClip {
+  id: string;
+  style: string;
+  blobKey: string;
+  createdAt: string;
+  /** Composite as picture-in-picture in renders. */
+  enabled: boolean;
 }
 
 export type DeliverableCut = "hero" | "ads" | "pitch";
@@ -125,9 +145,23 @@ export interface DeliverableRender {
   aspect: "16:9" | "9:16" | "1:1";
   blobKey: string;
   createdAt: string;
+  /** File extension of the stored container (mp4 or webm). */
+  ext?: string;
 }
 
 export type SeedanceMode = "text-to-video" | "image-to-video" | "first-last-frame";
+
+/** Creative-director critique of a cinematic shot's sampled frames. */
+export interface DirectorScore {
+  motion: number;
+  brandFidelity: number;
+  clarity: number;
+  artifacts: number;
+  total: number;
+  pass: boolean;
+  notes: string[];
+  improvedPrompt?: string;
+}
 
 /** A cinematic AI shot generated via Seedance and stored in IndexedDB. */
 export interface SeedanceClip {
@@ -142,6 +176,8 @@ export interface SeedanceClip {
   /** IndexedDB key for the stored mp4 blob. */
   blobKey: string;
   createdAt: string;
+  /** Creative-director gate result, if the polish loop ran. */
+  director?: DirectorScore;
 }
 
 export interface ScoreBreakdown {

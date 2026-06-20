@@ -8,15 +8,19 @@ import {
   buildEditTimeline,
   buildScreenshotClips,
   captionLinesFromTimeline,
-  captionsAtTime,
   cinematicAtTime,
   composeCinematicTimeline,
-  drawCaptionBar,
+  drawClickRipple,
   drawCoverVideo,
+  drawFramedFootage,
+  drawKaraokeCaptions,
+  footageInset,
+  karaokeWindow,
   drawIntroCard,
   drawKenBurnsImage,
   drawOutroCard,
-  drawZoomedFrame,
+  ensureBrandFont,
+  extForMimeType,
   outputDurationFromTimeline,
   seekVideo,
   segmentAtOutputTime,
@@ -46,7 +50,12 @@ const OUTRO_SEC = 3;
 
 function pickMimeType(): string | undefined {
   if (typeof MediaRecorder === "undefined") return undefined;
+  // Prefer MP4 (H.264/AAC) so Safari/iOS and most social platforms can play the
+  // result; fall back to WebM on Chromium/Firefox where MP4 recording is absent.
   const candidates = [
+    "video/mp4;codecs=h264,aac",
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4",
     "video/webm;codecs=vp9,opus",
     "video/webm;codecs=vp8,opus",
     "video/webm",
@@ -89,6 +98,8 @@ export interface RenderResult {
   aspect: AspectRatio;
   blob: Blob;
   url: string;
+  /** File extension for the chosen container (mp4 or webm). */
+  ext: string;
 }
 
 export interface ProductVideoStudioProps {
@@ -105,6 +116,8 @@ export interface ProductVideoStudioProps {
   maxDurationSec?: number;
   momentLimit?: number;
   cinematicClips?: CinematicClipInput[];
+  /** AI presenter clip URL to composite as picture-in-picture. */
+  avatarClipUrl?: string;
   onProgress?: (pct: number) => void;
   onComplete?: (results: RenderResult[]) => void;
 }
@@ -243,7 +256,7 @@ export function ProductVideoStudio({
                 <Pill>{r.aspect}</Pill>
                 <a
                   href={r.url}
-                  download={`launchreel-${r.aspect.replace(":", "x")}.webm`}
+                  download={`launchreel-${r.aspect.replace(":", "x")}.${r.ext}`}
                   className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-soft"
                 >
                   Download
@@ -286,7 +299,43 @@ interface RenderAspectOpts {
   narrationUrl?: string | null;
   narrationStartSec?: number;
   cinematicWindows?: CinematicWindow[];
+  fontFamily?: string;
+  clicks?: ClickEvent[];
+  avatarVideo?: HTMLVideoElement | null;
   onFrame?: (frame: number, totalFrames: number) => void;
+}
+
+/** Draw a circular picture-in-picture presenter in the bottom-right corner. */
+function drawAvatarPiP(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  w: number,
+  h: number,
+  accent: string,
+) {
+  if (!video.videoWidth) return;
+  const d = Math.round(Math.min(w, h) * 0.24);
+  const margin = Math.round(Math.min(w, h) * 0.05);
+  const cx = w - margin - d / 2;
+  const cy = h - margin - d / 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, d / 2, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+  // cover-fit the video into the circle's bounding box
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  const cover = Math.max(d / vw, d / vh);
+  const dw = vw * cover;
+  const dh = vh * cover;
+  ctx.drawImage(video, cx - dw / 2, cy - dh / 2, dw, dh);
+  ctx.restore();
+  ctx.beginPath();
+  ctx.arc(cx, cy, d / 2, 0, Math.PI * 2);
+  ctx.lineWidth = Math.max(2, d * 0.03);
+  ctx.strokeStyle = accent;
+  ctx.stroke();
 }
 
 async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
@@ -308,6 +357,9 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
     narrationUrl,
     narrationStartSec,
     cinematicWindows = [],
+    fontFamily = "system-ui, sans-serif",
+    clicks = [],
+    avatarVideo = null,
     onFrame,
   } = opts;
 
@@ -324,14 +376,28 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
   const musicBuf =
     (await loadAudioBuffer(audioCtx, "/music/bed.mp3")) ??
     createAmbientPad(audioCtx, totalSec);
-  copyBufferToMix(audioCtx, musicBuf, mixBuffer, 0, 0.12);
 
+  // Mix narration first so we know the window to duck the music under.
+  let duckStart = -1;
+  let duckEnd = -1;
   if (narrationUrl) {
     const narrBuf = await loadAudioBuffer(audioCtx, narrationUrl);
     if (narrBuf) {
-      copyBufferToMix(audioCtx, narrBuf, mixBuffer, narrationStartSec ?? introSec, 0.85);
+      const start = narrationStartSec ?? introSec;
+      copyBufferToMix(audioCtx, narrBuf, mixBuffer, start, 0.92);
+      duckStart = start;
+      duckEnd = start + narrBuf.duration;
     }
   }
+
+  // Looped, ducked music bed — quieter under the voiceover, fuller otherwise.
+  copyMusicDucked(audioCtx, musicBuf, mixBuffer, totalSec, duckStart, duckEnd, 0.18, 0.06);
+
+  // Subtle transition SFX on each cut (segment boundaries + cinematic entries).
+  const cutTimes = new Set<number>([Number(introSec.toFixed(2))]);
+  segments.forEach((s) => cutTimes.add(Number(s.outputStartSec.toFixed(2))));
+  cinematicWindows.forEach((win) => cutTimes.add(Number(win.startSec.toFixed(2))));
+  for (const t of cutTimes) addTransitionTick(audioCtx, mixBuffer, t, 0.12);
 
   const mixSource = audioCtx.createBufferSource();
   mixSource.buffer = mixBuffer;
@@ -361,6 +427,17 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
   let lastSourceTime = -1;
   let activeCine: HTMLVideoElement | null = null;
 
+  if (avatarVideo) {
+    avatarVideo.muted = true;
+    avatarVideo.loop = true;
+    try {
+      avatarVideo.currentTime = 0;
+    } catch {
+      /* not seekable yet */
+    }
+    void avatarVideo.play().catch(() => {});
+  }
+
   for (let f = 0; f < totalFrames; f++) {
     const tSec = f / FPS;
     onFrame?.(f, totalFrames);
@@ -388,9 +465,9 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
     }
 
     if (tSec < introSec) {
-      drawIntroCard(ctx, script.hook, w, h, brand.primaryColor, brand.backgroundColor);
+      drawIntroCard(ctx, script.hook, w, h, brand.primaryColor, brand.backgroundColor, fontFamily);
     } else if (tSec >= totalSec - outroSec) {
-      drawOutroCard(ctx, script.cta, w, h, brand.primaryColor, brand.backgroundColor, watermark);
+      drawOutroCard(ctx, script.cta, w, h, brand.primaryColor, brand.backgroundColor, watermark, fontFamily);
     } else {
       const hit = segmentAtOutputTime(segments, tSec);
       if (hit) {
@@ -416,12 +493,27 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
           const localMs = progress * segment.outputDurationSec * 1000;
           const zoom = zoomAtTime(segment.zoomKeyframes, localMs);
 
-          ctx.fillStyle = brand.backgroundColor;
-          ctx.fillRect(0, 0, w, h);
-          drawZoomedFrame(ctx, video, zoom, w, h);
+          drawFramedFootage(ctx, video, zoom, w, h, brand.backgroundColor, brand.primaryColor);
+
+          // Click ripple highlights within ~0.5s after each click.
+          const ins = footageInset(w, h);
+          for (const c of clicks) {
+            const dt = sourceTime * 1000 - c.tMs;
+            if (dt >= 0 && dt <= 500) {
+              drawClickRipple(
+                ctx,
+                ins.x + c.x * ins.w,
+                ins.y + c.y * ins.h,
+                dt / 500,
+                Math.min(ins.w, ins.h) * 0.12,
+                brand.accentColor,
+              );
+            }
+          }
         }
 
-        drawCaptionBar(ctx, captionsAtTime(captions, tSec), w, h, brand.accentColor);
+        drawKaraokeCaptions(ctx, karaokeWindow(captions, tSec), w, h, brand.accentColor, fontFamily);
+        if (avatarVideo) drawAvatarPiP(ctx, avatarVideo, w, h, brand.accentColor);
       } else {
         ctx.fillStyle = brand.backgroundColor;
         ctx.fillRect(0, 0, w, h);
@@ -433,6 +525,7 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
 
   recorder.stop();
   mixSource.stop();
+  if (avatarVideo) avatarVideo.pause();
   await audioCtx.close();
   return done;
 }
@@ -450,6 +543,60 @@ function copyBufferToMix(
     const destData = dest.getChannelData(ch);
     for (let i = 0; i < srcData.length && offset + i < destData.length; i++) {
       destData[offset + i] += srcData[i] * gain;
+    }
+  }
+}
+
+/** Add a looped music bed that ducks (gets quieter) under the voiceover window. */
+function copyMusicDucked(
+  ctx: AudioContext,
+  src: AudioBuffer,
+  dest: AudioBuffer,
+  totalSec: number,
+  duckStartSec: number,
+  duckEndSec: number,
+  baseGain: number,
+  duckGain: number,
+) {
+  const sr = ctx.sampleRate;
+  const totalLen = Math.min(dest.length, Math.ceil(totalSec * sr));
+  const ramp = Math.max(1, Math.floor(0.3 * sr));
+  const ds = duckStartSec * sr;
+  const de = duckEndSec * sr;
+  const lo = Math.min(baseGain, duckGain);
+  const hi = Math.max(baseGain, duckGain);
+  for (let ch = 0; ch < dest.numberOfChannels; ch++) {
+    const out = dest.getChannelData(ch);
+    const srcCh = src.getChannelData(Math.min(ch, src.numberOfChannels - 1));
+    const srcLen = srcCh.length;
+    if (!srcLen) continue;
+    for (let i = 0; i < totalLen; i++) {
+      let g = baseGain;
+      if (duckStartSec >= 0 && i >= ds - ramp && i <= de + ramp) {
+        if (i < ds) g = baseGain + (duckGain - baseGain) * ((i - (ds - ramp)) / ramp);
+        else if (i > de) g = duckGain + (baseGain - duckGain) * ((i - de) / ramp);
+        else g = duckGain;
+        g = Math.max(lo, Math.min(hi, g));
+      }
+      out[i] += srcCh[i % srcLen] * g;
+    }
+  }
+}
+
+/** Synthesize a short, soft whoosh/tick at a cut point. */
+function addTransitionTick(ctx: AudioContext, dest: AudioBuffer, atSec: number, gain: number) {
+  const sr = ctx.sampleRate;
+  const start = Math.floor(atSec * sr);
+  if (start < 0) return;
+  const len = Math.floor(0.12 * sr);
+  for (let ch = 0; ch < dest.numberOfChannels; ch++) {
+    const out = dest.getChannelData(ch);
+    let prev = 0;
+    for (let i = 0; i < len && start + i < out.length; i++) {
+      const env = Math.pow(1 - i / len, 2.5);
+      const noise = Math.random() * 2 - 1;
+      prev = prev * 0.85 + noise * 0.15; // simple low-pass → softer
+      out[start + i] += prev * env * gain;
     }
   }
 }
@@ -563,6 +710,25 @@ export async function renderProductVideo(
   }
 
   const captions = wordCaptions(captionLines);
+  // Load the brand font once so every aspect renders with it.
+  const fontFamily = await ensureBrandFont(brand.font);
+
+  // Load the AI presenter clip once for picture-in-picture compositing.
+  let avatarVideo: HTMLVideoElement | null = null;
+  if (opts.avatarClipUrl) {
+    avatarVideo = document.createElement("video");
+    avatarVideo.src = opts.avatarClipUrl;
+    avatarVideo.muted = true;
+    avatarVideo.playsInline = true;
+    avatarVideo.loop = true;
+    await new Promise<void>((resolve) => {
+      avatarVideo!.onloadeddata = () => resolve();
+      avatarVideo!.onerror = () => resolve();
+      if (avatarVideo!.readyState >= 2) resolve();
+      setTimeout(resolve, 4000);
+    });
+  }
+
   const results: RenderResult[] = [];
 
   for (let ai = 0; ai < aspects.length; ai++) {
@@ -586,12 +752,15 @@ export async function renderProductVideo(
       narrationUrl: opts.narrationUrl,
       narrationStartSec,
       cinematicWindows,
+      fontFamily,
+      clicks,
+      avatarVideo,
       onFrame: (frame, totalFrames) => {
         const overall = ((ai + frame / totalFrames) / aspects.length) * 100;
         opts.onProgress?.(Math.round(overall));
       },
     });
-    results.push({ aspect, blob, url: URL.createObjectURL(blob) });
+    results.push({ aspect, blob, url: URL.createObjectURL(blob), ext: extForMimeType(blob.type) });
   }
   return results;
 }

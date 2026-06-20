@@ -3,9 +3,12 @@
 import { useSyncExternalStore } from "react";
 import type {
   AiAudit,
+  BrandKit,
   DemoMoment,
+  DirectorScore,
   GeneratedCaptions,
   JudgeScores,
+  Slide,
   StoryRole,
   VideoScript,
 } from "./types";
@@ -384,6 +387,70 @@ export async function fetchRecap(input: { notes: string; durationSec: number }):
   });
   if (!res.ok) await parseApiError(res, "Recap failed");
   return (await res.json()) as RecapResult;
+}
+
+export async function fetchDirectorCritique(input: {
+  frames: { tSec: number; dataUrl: string }[];
+  label: string;
+  placement: string;
+  hook?: string;
+  aspect?: string;
+  brandColors?: { primary?: string; accent?: string; bg?: string };
+}): Promise<DirectorScore> {
+  await assertAiReady();
+  const res = await fetch("/api/director", {
+    method: "POST",
+    headers: await aiJsonHeaders(),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) await parseApiError(res, "Director critique failed");
+  return (await res.json()) as DirectorScore;
+}
+
+export async function fetchTranslate(input: {
+  hook: string;
+  cta: string;
+  lines: string[];
+  language: string;
+}): Promise<{ hook: string; cta: string; lines: string[] }> {
+  await assertAiReady();
+  const res = await fetch("/api/translate", {
+    method: "POST",
+    headers: await aiJsonHeaders(),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) await parseApiError(res, "Translate failed");
+  return (await res.json()) as { hook: string; cta: string; lines: string[] };
+}
+
+export async function fetchDeck(input: {
+  productName: string;
+  oneLiner?: string;
+  hook?: string;
+  cta?: string;
+  audience?: string;
+  moments?: string[];
+  weakestPoint?: string;
+}): Promise<{ slides: Slide[] }> {
+  await assertAiReady();
+  const res = await fetch("/api/deck", {
+    method: "POST",
+    headers: await aiJsonHeaders(),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) await parseApiError(res, "Deck failed");
+  return (await res.json()) as { slides: Slide[] };
+}
+
+export async function fetchBrandExtract(url: string): Promise<Partial<BrandKit>> {
+  await assertAiReady();
+  const res = await fetch("/api/brand-extract", {
+    method: "POST",
+    headers: await aiJsonHeaders(),
+    body: JSON.stringify({ url }),
+  });
+  if (!res.ok) await parseApiError(res, "Brand extraction failed");
+  return (await res.json()) as Partial<BrandKit>;
 }
 
 export type SeedanceMode = "text-to-video" | "image-to-video" | "first-last-frame";

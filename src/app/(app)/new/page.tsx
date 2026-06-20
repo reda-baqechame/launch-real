@@ -15,6 +15,7 @@ import {
   clearKey,
   clearTtsKey,
   fetchAudit,
+  fetchBrandExtract,
   setFalKey,
   setKey,
   setTtsKey,
@@ -22,6 +23,7 @@ import {
   useFalKey,
   useTtsKey,
 } from "@/lib/ai";
+import { getBrandKit, isDefaultBrandKit, saveBrandKit } from "@/lib/brand-kit-store";
 import { usePublicConfig, useAiEnabled } from "@/lib/hosted-config";
 import { saveRecordingFootage, saveScreenshotFootage } from "@/lib/footage-intake";
 import { buildRecordReturnUrl } from "@/lib/record-return";
@@ -177,6 +179,26 @@ function NewProjectPageInner({ resumeProject }: { resumeProject: Project | null 
     }
 
     const ai = await auditPromise;
+
+    // Best-effort: auto-fill the brand kit from the site so every shot is
+    // on-brand. Only when the kit is still untouched; never blocks the flow.
+    if (url.trim() && isDefaultBrandKit(getBrandKit())) {
+      const HEX = /^#[0-9a-fA-F]{6}$/;
+      void fetchBrandExtract(url)
+        .then((patch) => {
+          const current = getBrandKit();
+          const merged = { ...current };
+          if (patch.logoText?.trim()) merged.logoText = patch.logoText.trim().slice(0, 40);
+          if (patch.font?.trim()) merged.font = patch.font.trim().slice(0, 40);
+          if (patch.voice) merged.voice = patch.voice;
+          for (const k of ["primaryColor", "accentColor", "backgroundColor"] as const) {
+            const v = patch[k];
+            if (typeof v === "string" && HEX.test(v.trim())) merged[k] = v.trim();
+          }
+          if (isDefaultBrandKit(current)) saveBrandKit(merged);
+        })
+        .catch(() => {});
+    }
 
     let project;
     if (returnedProjectId) {

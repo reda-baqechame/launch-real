@@ -54,6 +54,7 @@ export interface DeliverableInputs {
   imageUrls?: string[];
   narrationUrl?: string | null;
   cinematicClips: CinematicClipInput[];
+  avatarClipUrl?: string;
   watermark: boolean;
   proxy?: boolean;
 }
@@ -63,6 +64,7 @@ export interface DeliverableResult {
   label: string;
   aspect: AspectRatio;
   blob: Blob;
+  ext: string;
 }
 
 function clipsForCut(
@@ -98,10 +100,17 @@ export async function renderDeliverables(
       momentLimit: cfg.momentLimit,
       maxDurationSec: cfg.maxDurationSec,
       cinematicClips: clipsForCut(cfg, inputs.cinematicClips),
+      avatarClipUrl: inputs.avatarClipUrl,
       onProgress: (pct) => onProgress?.(cfg.cut, pct),
     });
     if (out[0]) {
-      results.push({ cut: cfg.cut, label: cfg.label, aspect: cfg.aspect, blob: out[0].blob });
+      results.push({
+        cut: cfg.cut,
+        label: cfg.label,
+        aspect: cfg.aspect,
+        blob: out[0].blob,
+        ext: out[0].ext,
+      });
     }
   }
   return results;

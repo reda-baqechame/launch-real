@@ -1,10 +1,11 @@
 "use client";
 
 import { fetchPublicConfig } from "./public-config-client";
-import { pollSeedance, submitSeedance } from "./ai";
-import { saveBlob, seedanceKey } from "./footage-store";
+import { fetchDirectorCritique, pollSeedance, submitSeedance } from "./ai";
+import { deleteBlob, getBlob, saveBlob, seedanceKey } from "./footage-store";
+import { sampleFrames } from "./director";
 import type { CinematicPreset, ShotContext } from "./cinematic-presets";
-import type { SeedanceClip } from "./types";
+import type { DirectorScore, SeedanceClip } from "./types";
 
 export interface GenerateShotOptions {
   aspect?: "16:9" | "9:16" | "1:1";
@@ -14,6 +15,8 @@ export interface GenerateShotOptions {
   resolution?: "720p" | "1080p";
   /** Polling cap; Seedance usually completes in 30-120s. */
   timeoutMs?: number;
+  /** Override the preset prompt (used by the creative-director regenerate loop). */
+  promptOverride?: string;
   onStatus?: (status: string) => void;
 }
 
@@ -106,7 +109,7 @@ export async function generateCinematicShot(
   opts: GenerateShotOptions = {},
 ): Promise<SeedanceClip> {
   const aspect = opts.aspect ?? preset.recommendedAspect[0] ?? "16:9";
-  const prompt = preset.buildPrompt(ctx);
+  const prompt = opts.promptOverride ?? preset.buildPrompt(ctx);
   const id = `${preset.id}-${Date.now().toString(36)}`;
   const key = seedanceKey(projectId, id);
   const cfg = await fetchPublicConfig();
@@ -165,4 +168,97 @@ export async function generateCinematicShot(
     blobKey: key,
     createdAt: new Date().toISOString(),
   };
+}
+
+const MAX_REGEN = 2;
+
+/** Sample a few frames from a stored clip blob for the director critique. */
+async function sampleShotFrames(
+  blob: Blob,
+  count = 4,
+): Promise<{ tSec: number; dataUrl: string }[]> {
+  const url = URL.createObjectURL(blob);
+  try {
+    const video = document.createElement("video");
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    await new Promise<void>((resolve) => {
+      video.onloadeddata = () => resolve();
+      video.onerror = () => resolve();
+      if (video.readyState >= 2) resolve();
+      setTimeout(resolve, 4000);
+    });
+    const dataUrls = await sampleFrames(video, count);
+    return dataUrls.map((dataUrl, i) => ({ tSec: i, dataUrl }));
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
+ * Generate a cinematic shot and run it through the creative-director gate:
+ * critique the rendered frames, and if it fails the bar, regenerate with the
+ * director's improved prompt — up to MAX_REGEN times. Returns the best-scoring
+ * clip with its `director` score attached. Superseded blobs are discarded.
+ */
+export async function generateAndPolishShot(
+  projectId: string,
+  preset: CinematicPreset,
+  ctx: ShotContext,
+  opts: GenerateShotOptions = {},
+): Promise<SeedanceClip> {
+  let best: (SeedanceClip & { director?: DirectorScore }) | null = null;
+  let promptOverride = opts.promptOverride;
+
+  for (let attempt = 0; attempt <= MAX_REGEN; attempt++) {
+    opts.onStatus?.(attempt === 0 ? "generating" : `regenerating (${attempt})`);
+    const clip = await generateCinematicShot(projectId, preset, ctx, {
+      ...opts,
+      promptOverride,
+    });
+
+    let score: DirectorScore | undefined;
+    try {
+      opts.onStatus?.("critiquing");
+      const blob = await getBlob(clip.blobKey, "seedance");
+      const frames = blob ? await sampleShotFrames(blob) : [];
+      if (frames.length) {
+        score = await fetchDirectorCritique({
+          frames,
+          label: preset.label,
+          placement: preset.placement,
+          hook: ctx.note,
+          aspect: clip.aspect,
+          brandColors: {
+            primary: ctx.brand.primaryColor,
+            accent: ctx.brand.accentColor,
+            bg: ctx.brand.backgroundColor,
+          },
+        });
+      }
+    } catch {
+      // Critique is best-effort; never fail the shot over it.
+    }
+
+    const scored: SeedanceClip & { director?: DirectorScore } = { ...clip, director: score };
+    const prevBestTotal = best?.director?.total ?? -1;
+    const thisTotal = score?.total ?? 0;
+    if (best && best.blobKey !== scored.blobKey && thisTotal > prevBestTotal) {
+      // New attempt wins — drop the previous loser's blob.
+      void deleteBlob(best.blobKey, "seedance");
+      best = scored;
+    } else if (!best) {
+      best = scored;
+    } else {
+      // This attempt lost — drop its blob.
+      void deleteBlob(scored.blobKey, "seedance");
+    }
+
+    if (!score || score.pass || !score.improvedPrompt) break;
+    promptOverride = score.improvedPrompt;
+  }
+
+  return best!;
 }

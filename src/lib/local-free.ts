@@ -200,6 +200,91 @@ export function localFreeRecap(input?: { notes?: string; durationSec?: number })
   };
 }
 
+export function localFreeBrandExtract(url?: string) {
+  let logoText = "Your Product";
+  try {
+    if (url?.trim()) {
+      const host = new URL(url.startsWith("http") ? url : `https://${url}`).hostname.replace(
+        /^www\./,
+        "",
+      );
+      const base = host.split(".")[0] || host;
+      logoText = base.charAt(0).toUpperCase() + base.slice(1);
+    }
+  } catch {
+    /* keep default */
+  }
+  return {
+    logoText,
+    primaryColor: "#6E56F7",
+    accentColor: "#8A78F9",
+    backgroundColor: "#0A0A0B",
+    font: "Geist",
+    voice: "Founder" as const,
+  };
+}
+
+export function localFreeDirector() {
+  return {
+    motion: 88,
+    brandFidelity: 86,
+    clarity: 90,
+    artifacts: 92,
+    total: 89,
+    pass: true,
+    notes: [
+      "Camera move reads as deliberate and premium.",
+      "Palette tracks the brand colors closely.",
+    ],
+    improvedPrompt: "",
+  };
+}
+
+export function localFreeTranslate(input?: {
+  hook?: string;
+  cta?: string;
+  lines?: string[];
+  language?: string;
+}) {
+  const tag = (input?.language || "ES").slice(0, 2).toUpperCase();
+  const t = (s?: string) => (s ? `[${tag}] ${s}` : "");
+  return {
+    hook: t(input?.hook),
+    cta: t(input?.cta),
+    lines: (input?.lines ?? []).map((l) => t(l)),
+  };
+}
+
+export function localFreeDeck(input?: { productName?: string; oneLiner?: string; hook?: string }) {
+  const name = input?.productName || "Your Product";
+  return {
+    slides: [
+      { kind: "title", title: name, bullets: [input?.hook || "Show your software, beautifully."] },
+      {
+        kind: "point",
+        title: "The problem",
+        bullets: ["Great software is hard to show.", "Demos take days and look amateur."],
+      },
+      {
+        kind: "point",
+        title: "What it is",
+        bullets: [input?.oneLiner || `${name} turns your product into a polished launch video.`],
+      },
+      {
+        kind: "point",
+        title: "How it works",
+        bullets: ["Record or paste a URL", "AI scripts + cinematic shots", "Export hero, ad, and pitch cuts"],
+      },
+      { kind: "cta", title: "Get started", bullets: ["Make your launch kit today."] },
+    ],
+  };
+}
+
+export function localFreeAvatar() {
+  // The client synthesizes a placeholder talking head locally in local-free mode.
+  return { requestId: "local-avatar", status: "done" as const, localFree: true };
+}
+
 export function localFreeSeedanceShot() {
   // The client synthesizes a branded placeholder clip locally in local-free
   // mode (no network / no fal.ai key needed). This marker is returned for
