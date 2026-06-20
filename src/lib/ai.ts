@@ -14,6 +14,7 @@ import { fetchPublicConfig } from "./public-config-client";
 const ANTHROPIC_KEY = "launchreel.anthropic_key";
 const TTS_KEY = "launchreel.tts_key";
 const TTS_PROVIDER_KEY = "launchreel.tts_provider";
+const FAL_KEY = "launchreel.fal_key";
 
 const listeners = new Set<() => void>();
 function emit() {
@@ -95,6 +96,36 @@ export function clearTtsKey() {
 
 export function useTtsKey(): string | null {
   return useSyncExternalStore(subscribe, getTtsKey, () => null);
+}
+
+export function getFalKey(): string | null {
+  try {
+    return localStorage.getItem(FAL_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setFalKey(key: string) {
+  try {
+    localStorage.setItem(FAL_KEY, key.trim());
+  } catch {
+    /* ignore */
+  }
+  emit();
+}
+
+export function clearFalKey() {
+  try {
+    localStorage.removeItem(FAL_KEY);
+  } catch {
+    /* ignore */
+  }
+  emit();
+}
+
+export function useFalKey(): string | null {
+  return useSyncExternalStore(subscribe, getFalKey, () => null);
 }
 
 async function aiJsonHeaders(): Promise<Record<string, string>> {
@@ -336,6 +367,83 @@ export async function fetchLocalize(input: {
   });
   if (!res.ok) await parseApiError(res, "Localize failed");
   return (await res.json()) as LocalizeResult;
+}
+
+export interface RecapResult {
+  title: string;
+  summary: string;
+  chapters: { time: string; label: string }[];
+}
+
+export async function fetchRecap(input: { notes: string; durationSec: number }): Promise<RecapResult> {
+  await assertAiReady();
+  const res = await fetch("/api/recap", {
+    method: "POST",
+    headers: await aiJsonHeaders(),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) await parseApiError(res, "Recap failed");
+  return (await res.json()) as RecapResult;
+}
+
+export type SeedanceMode = "text-to-video" | "image-to-video" | "first-last-frame";
+
+async function seedanceHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  const cfg = await fetchPublicConfig();
+  if (cfg.localFree || cfg.hosted) return headers;
+  const key = getFalKey();
+  if (!key) throw new Error("No fal.ai key connected. Add it in Settings.");
+  headers["x-fal-key"] = key;
+  return headers;
+}
+
+export interface SeedanceSubmitRequest {
+  mode: SeedanceMode;
+  prompt: string;
+  aspect: "16:9" | "9:16" | "1:1";
+  durationSec: number;
+  resolution?: "720p" | "1080p";
+  imageUrl?: string;
+  lastFrameUrl?: string;
+  camera?: string;
+}
+
+export async function submitSeedance(
+  input: SeedanceSubmitRequest,
+): Promise<{ requestId: string; mode: SeedanceMode; status: string; localFree?: boolean }> {
+  const res = await fetch("/api/seedance", {
+    method: "POST",
+    headers: await seedanceHeaders(),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) await parseApiError(res, "Cinematic shot failed");
+  return (await res.json()) as {
+    requestId: string;
+    mode: SeedanceMode;
+    status: string;
+    localFree?: boolean;
+  };
+}
+
+export interface SeedancePollResult {
+  status: "queued" | "processing" | "done" | "failed";
+  videoUrl?: string;
+  error?: string;
+  localFree?: boolean;
+}
+
+export async function pollSeedance(
+  requestId: string,
+  mode: SeedanceMode,
+): Promise<SeedancePollResult> {
+  const headers = await seedanceHeaders();
+  const res = await fetch(
+    `/api/seedance?requestId=${encodeURIComponent(requestId)}&mode=${encodeURIComponent(mode)}`,
+    { headers },
+  );
+  if (!res.ok) await parseApiError(res, "Cinematic status failed");
+  return (await res.json()) as SeedancePollResult;
 }
 
 /** Headers for agent API calls (hosted mode uses server keys + Clerk session). */

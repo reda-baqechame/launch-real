@@ -318,6 +318,125 @@ export function captionLinesFromTimeline(segments: EditSegment[]): VideoScript["
     .map((s) => s.captionLine!);
 }
 
+/** A cinematic shot occupying a window of output time, played in real time. */
+export interface CinematicWindow {
+  startSec: number;
+  endSec: number;
+  video: HTMLVideoElement;
+  label?: string;
+}
+
+/** Cinematic shot input (an HTMLVideoElement loaded from a Seedance blob). */
+export interface CinematicShotInput {
+  video: HTMLVideoElement;
+  durationSec: number;
+  label?: string;
+}
+
+/** Return the cinematic window covering output time t, if any. */
+export function cinematicAtTime(
+  windows: CinematicWindow[],
+  tSec: number,
+): CinematicWindow | null {
+  for (const win of windows) {
+    if (tSec >= win.startSec && tSec < win.endSec) return win;
+  }
+  return null;
+}
+
+/**
+ * Weave cinematic intro/outro shots around the demo body. The body (segments +
+ * captions) is shifted later by the intro shot's duration so voiceover/captions
+ * stay aligned; narration is mixed at narrationStartSec. v1 supports an intro
+ * window (between intro card and body) and an outro window (between body and
+ * outro card).
+ */
+export function composeCinematicTimeline(opts: {
+  segments: EditSegment[];
+  captionLines: VideoScript["lines"];
+  introSec: number;
+  outroSec: number;
+  introShot?: CinematicShotInput;
+  outroShot?: CinematicShotInput;
+}): {
+  segments: EditSegment[];
+  captionLines: VideoScript["lines"];
+  windows: CinematicWindow[];
+  narrationStartSec: number;
+  totalSec: number;
+} {
+  const { introSec, outroSec, introShot, outroShot } = opts;
+  const introDur = introShot ? Math.max(1, introShot.durationSec) : 0;
+  const outroDur = outroShot ? Math.max(1, outroShot.durationSec) : 0;
+
+  // Shift the body (and its captions) later to make room for the intro shot.
+  const shift = introDur;
+  const segments = opts.segments.map((s) => ({
+    ...s,
+    outputStartSec: s.outputStartSec + shift,
+    captionLine: s.captionLine
+      ? {
+          ...s.captionLine,
+          startSec: s.captionLine.startSec + shift,
+          endSec: s.captionLine.endSec + shift,
+        }
+      : s.captionLine,
+  }));
+  const captionLines = opts.captionLines.map((l) => ({
+    ...l,
+    startSec: l.startSec + shift,
+    endSec: l.endSec + shift,
+  }));
+
+  const bodyStart = introSec + introDur;
+  const bodyEnd =
+    segments.length > 0
+      ? segments[segments.length - 1].outputStartSec +
+        segments[segments.length - 1].outputDurationSec
+      : bodyStart;
+
+  const windows: CinematicWindow[] = [];
+  if (introShot) {
+    windows.push({
+      startSec: introSec,
+      endSec: introSec + introDur,
+      video: introShot.video,
+      label: introShot.label,
+    });
+  }
+  if (outroShot) {
+    windows.push({
+      startSec: bodyEnd,
+      endSec: bodyEnd + outroDur,
+      video: outroShot.video,
+      label: outroShot.label,
+    });
+  }
+
+  const totalSec = bodyEnd + outroDur + outroSec;
+  return { segments, captionLines, windows, narrationStartSec: bodyStart, totalSec };
+}
+
+/** Draw a video frame cover-fit (aspect-preserving) onto the canvas. */
+export function drawCoverVideo(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  w: number,
+  h: number,
+  bg = "#0a0a0a",
+) {
+  const vw = video.videoWidth || w;
+  const vh = video.videoHeight || h;
+  const cover = Math.max(w / vw, h / vh);
+  const dw = vw * cover;
+  const dh = vh * cover;
+  const dx = (w - dw) / 2;
+  const dy = (h - dh) / 2;
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(video, dx, dy, dw, dh);
+}
+
 /** Grab a single frame at timestamp as data URL. */
 export async function grabFrame(video: HTMLVideoElement, tSec: number): Promise<string> {
   await seekVideo(video, tSec);
