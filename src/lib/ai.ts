@@ -338,6 +338,23 @@ export async function fetchLocalize(input: {
   return (await res.json()) as LocalizeResult;
 }
 
+export interface RecapResult {
+  title: string;
+  summary: string;
+  chapters: { time: string; label: string }[];
+}
+
+export async function fetchRecap(input: { notes: string; durationSec: number }): Promise<RecapResult> {
+  await assertAiReady();
+  const res = await fetch("/api/recap", {
+    method: "POST",
+    headers: await aiJsonHeaders(),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) await parseApiError(res, "Recap failed");
+  return (await res.json()) as RecapResult;
+}
+
 /** Headers for agent API calls (hosted mode uses server keys + Clerk session). */
 export async function agentJsonHeaders(): Promise<Record<string, string>> {
   return aiJsonHeaders();

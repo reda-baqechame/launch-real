@@ -179,6 +179,27 @@ export function localFreeLocalize(input?: { productName?: string; locale?: strin
   };
 }
 
+export function localFreeRecap(input?: { notes?: string; durationSec?: number }) {
+  const duration = Math.max(1, Math.round(input?.durationSec ?? 60));
+  const mmss = (total: number) => {
+    const m = Math.floor(total / 60);
+    const s = Math.floor(total % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+  const hasNotes = Boolean(input?.notes?.trim());
+  return {
+    title: "Product walkthrough: from setup to first result",
+    summary: hasNotes
+      ? "A quick tour of the core flow, ending on the finished output."
+      : "A short product walkthrough covering setup, the main action, and the payoff screen.",
+    chapters: [
+      { time: "0:00", label: "Intro & setup" },
+      { time: mmss(Math.round(duration * 0.35)), label: "Core workflow" },
+      { time: mmss(Math.round(duration * 0.75)), label: "The payoff" },
+    ],
+  };
+}
+
 export function localFreeAgentPlan(input?: { goal?: string; avoid?: string[]; stopWhen?: string }) {
   return {
     steps: [

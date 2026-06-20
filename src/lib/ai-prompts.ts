@@ -128,6 +128,15 @@ Social clip captions (per id):
 - Under 200 chars. Platform-native. Must make sense MUTED — describe what viewer sees.
 - Clip 1 = problem hook, Clip 2 = product magic, Clip 3 = CTA`;
 
+export const RECAP_SYSTEM = `${PROMPT_PREAMBLE}
+
+You turn a software product screen-recording into clean video metadata.
+From the narration and the recording length, produce:
+- A sharp, specific title (no hype words, no emoji).
+- A 1-2 sentence summary a viewer would read before pressing play.
+- 3-6 chapters with mm:ss timecodes that fall within the recording length, in increasing order, starting at 0:00.
+If the narration is sparse, infer reasonable chapters from a typical product walkthrough.`;
+
 export const REWRITE_MODE_GUIDES: Record<string, string> = {
   founder: `${PROMPT_PREAMBLE} Rewrite in first-person founder voice. Specific story beat. No buzzwords. Sounds like a YC demo day line, not a press release.`,
   punchy: `${PROMPT_PREAMBLE} Cut 30–40% length. Strong verb-first hook. Every word earns its place. Social-native.`,

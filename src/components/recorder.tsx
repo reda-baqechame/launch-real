@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, ButtonLink, Card, Pill } from "@/components/ui";
 import { AssetAction } from "@/components/asset-bits";
+import { RecordingRecap } from "@/components/recording-recap";
 import { cn } from "@/lib/cn";
 import { footageKey, saveBlob } from "@/lib/footage-store";
 import { parseRecordReturnParams } from "@/lib/record-return";
@@ -341,11 +342,15 @@ export function Recorder() {
             </ButtonLink>
           </div>
           <ul className="mt-5 space-y-1.5 text-xs text-ink-mute">
-            <li>• Auto title, transcript & chapters (coming next)</li>
+            <li>• Auto title, summary & chapters — below</li>
             <li>• Silence & filler-word removal</li>
             <li>• Viewer analytics on the share page</li>
           </ul>
         </Card>
+
+        <div className="lg:col-span-2">
+          <RecordingRecap notes={notes} durationSec={elapsed} />
+        </div>
       </div>
     );
   }
