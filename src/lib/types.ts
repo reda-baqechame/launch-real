@@ -113,6 +113,18 @@ export interface Project {
   sourceChangelog?: string;
   /** Cinematic AI shots (Seedance) generated for this project. */
   cinematicShots?: SeedanceClip[];
+  /** Rendered flagship deliverables (hero / ads / pitch cuts). */
+  deliverables?: DeliverableRender[];
+}
+
+export type DeliverableCut = "hero" | "ads" | "pitch";
+
+export interface DeliverableRender {
+  cut: DeliverableCut;
+  label: string;
+  aspect: "16:9" | "9:16" | "1:1";
+  blobKey: string;
+  createdAt: string;
 }
 
 export type SeedanceMode = "text-to-video" | "image-to-video" | "first-last-frame";

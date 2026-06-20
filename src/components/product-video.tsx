@@ -9,7 +9,10 @@ import {
   buildScreenshotClips,
   captionLinesFromTimeline,
   captionsAtTime,
+  cinematicAtTime,
+  composeCinematicTimeline,
   drawCaptionBar,
+  drawCoverVideo,
   drawIntroCard,
   drawKenBurnsImage,
   drawOutroCard,
@@ -20,12 +23,22 @@ import {
   wordCaptions,
   zoomAtTime,
   type AspectRatio,
+  type CinematicShotInput,
+  type CinematicWindow,
   type EditSegment,
   type KenBurnsClip,
 } from "@/lib/director";
 import { loadImages } from "@/lib/screenshot-loader";
 import { getBrandKit, useBrandKit } from "@/lib/brand-kit-store";
-import type { BrandKit, ClickEvent, DemoMoment, VideoScript } from "@/lib/types";
+import type { BrandKit, ClickEvent, DemoMoment, SeedanceClip, VideoScript } from "@/lib/types";
+
+/** A cinematic shot to weave into the render, resolved to a playable URL. */
+export interface CinematicClipInput {
+  url: string;
+  placement: SeedanceClip["placement"];
+  durationSec: number;
+  label: string;
+}
 
 const FPS = 30;
 const INTRO_SEC = 2;
@@ -90,8 +103,29 @@ export interface ProductVideoStudioProps {
   proxy?: boolean;
   imageUrls?: string[];
   maxDurationSec?: number;
+  momentLimit?: number;
+  cinematicClips?: CinematicClipInput[];
   onProgress?: (pct: number) => void;
   onComplete?: (results: RenderResult[]) => void;
+}
+
+/** Load a cinematic clip URL into a ready-to-play, muted video element. */
+async function loadCineShot(clip: CinematicClipInput): Promise<CinematicShotInput> {
+  const video = document.createElement("video");
+  video.src = clip.url;
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  video.crossOrigin = "anonymous";
+  await new Promise<void>((resolve) => {
+    video.onloadedmetadata = () => resolve();
+    video.onerror = () => resolve();
+    if (video.readyState >= 1) resolve();
+    setTimeout(resolve, 4000);
+  });
+  const durationSec =
+    Number.isFinite(video.duration) && video.duration > 0 ? video.duration : clip.durationSec;
+  return { video, durationSec, label: clip.label };
 }
 
 export function ProductVideoStudio({
@@ -250,6 +284,8 @@ interface RenderAspectOpts {
   brand: BrandKit;
   watermark: boolean;
   narrationUrl?: string | null;
+  narrationStartSec?: number;
+  cinematicWindows?: CinematicWindow[];
   onFrame?: (frame: number, totalFrames: number) => void;
 }
 
@@ -270,6 +306,8 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
     brand,
     watermark,
     narrationUrl,
+    narrationStartSec,
+    cinematicWindows = [],
     onFrame,
   } = opts;
 
@@ -290,7 +328,9 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
 
   if (narrationUrl) {
     const narrBuf = await loadAudioBuffer(audioCtx, narrationUrl);
-    if (narrBuf) copyBufferToMix(audioCtx, narrBuf, mixBuffer, introSec, 0.85);
+    if (narrBuf) {
+      copyBufferToMix(audioCtx, narrBuf, mixBuffer, narrationStartSec ?? introSec, 0.85);
+    }
   }
 
   const mixSource = audioCtx.createBufferSource();
@@ -319,10 +359,33 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
 
   const totalFrames = Math.ceil(totalSec * FPS);
   let lastSourceTime = -1;
+  let activeCine: HTMLVideoElement | null = null;
 
   for (let f = 0; f < totalFrames; f++) {
     const tSec = f / FPS;
     onFrame?.(f, totalFrames);
+
+    const cine = cinematicAtTime(cinematicWindows, tSec);
+    if (cine) {
+      if (activeCine !== cine.video) {
+        if (activeCine) activeCine.pause();
+        activeCine = cine.video;
+        activeCine.muted = true;
+        try {
+          activeCine.currentTime = 0;
+        } catch {
+          /* not seekable yet */
+        }
+        void activeCine.play().catch(() => {});
+      }
+      drawCoverVideo(ctx, cine.video, w, h, brand.backgroundColor);
+      await sleep(1000 / FPS);
+      continue;
+    }
+    if (activeCine) {
+      activeCine.pause();
+      activeCine = null;
+    }
 
     if (tSec < introSec) {
       drawIntroCard(ctx, script.hook, w, h, brand.primaryColor, brand.backgroundColor);
@@ -453,9 +516,51 @@ export async function renderProductVideo(
     clicks,
     footageDur,
   );
-  const { segments, captionLines } = timeline;
-  let { totalSec } = timeline;
-  if (opts.maxDurationSec) totalSec = Math.min(totalSec, opts.maxDurationSec);
+  let segments = timeline.segments;
+  let captionLines = timeline.captionLines;
+
+  // Trim to the first N moments for short cuts (e.g. vertical ads).
+  if (opts.momentLimit && segments.length > opts.momentLimit) {
+    segments = segments.slice(0, opts.momentLimit);
+    captionLines = segments.length ? captionLinesFromTimeline(segments) : captionLines;
+  }
+
+  let totalSec = outputDurationFromTimeline(segments, INTRO_SEC, OUTRO_SEC);
+
+  // Weave cinematic intro/outro shots around the body.
+  let cinematicWindows: CinematicWindow[] = [];
+  let narrationStartSec = INTRO_SEC;
+  if (opts.cinematicClips?.length) {
+    const introClip =
+      opts.cinematicClips.find((c) => c.placement === "intro") ??
+      opts.cinematicClips.find((c) => c.placement !== "outro");
+    const outroClip =
+      opts.cinematicClips.find((c) => c.placement === "outro") ??
+      opts.cinematicClips.find((c) => c !== introClip);
+    const introShot = introClip ? await loadCineShot(introClip) : undefined;
+    const outroShot = outroClip ? await loadCineShot(outroClip) : undefined;
+    if (introShot || outroShot) {
+      const composed = composeCinematicTimeline({
+        segments,
+        captionLines,
+        introSec: INTRO_SEC,
+        outroSec: OUTRO_SEC,
+        introShot,
+        outroShot,
+      });
+      segments = composed.segments;
+      captionLines = composed.captionLines;
+      cinematicWindows = composed.windows;
+      narrationStartSec = composed.narrationStartSec;
+      totalSec = composed.totalSec;
+    }
+  }
+
+  // Hard duration cap only applies when there are no cinematic windows to
+  // protect (clamping otherwise risks chopping the outro shot/card).
+  if (opts.maxDurationSec && cinematicWindows.length === 0) {
+    totalSec = Math.min(totalSec, opts.maxDurationSec);
+  }
 
   const captions = wordCaptions(captionLines);
   const results: RenderResult[] = [];
@@ -479,6 +584,8 @@ export async function renderProductVideo(
       brand,
       watermark: opts.watermark ?? true,
       narrationUrl: opts.narrationUrl,
+      narrationStartSec,
+      cinematicWindows,
       onFrame: (frame, totalFrames) => {
         const overall = ((ai + frame / totalFrames) / aspects.length) * 100;
         opts.onProgress?.(Math.round(overall));

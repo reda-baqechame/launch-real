@@ -81,6 +81,10 @@ export function seedanceKey(projectId: string, shotId: string): string {
   return `seedance:${projectId}:${shotId}`;
 }
 
+export function deliverableKey(projectId: string, cut: string): string {
+  return `render:${projectId}:cut-${cut}`;
+}
+
 export function variantCutKey(projectId: string, variant: "founder" | "investor"): string {
   return `render:${projectId}:cut-${variant}`;
 }
