@@ -29,6 +29,7 @@ import { CinematicPanel } from "@/components/cinematic-panel";
 import { TimelineEditor } from "@/components/timeline-editor";
 import { DeckPanel } from "@/components/deck-panel";
 import { LocalizeVideoPanel } from "@/components/localize-video-panel";
+import { PersonalizePanel } from "@/components/personalize-panel";
 import { fetchRewrite } from "@/lib/ai";
 import { useAiEnabled, usePublicConfig } from "@/lib/hosted-config";
 import { voiceChipToMode } from "@/lib/voice-chip-map";
@@ -40,6 +41,7 @@ const TABS = [
   "Cinematic",
   "Deck",
   "Dub",
+  "Personalize",
   "Product Hunt",
   "Social Clips",
   "Copy",
@@ -194,6 +196,8 @@ export function LaunchKitTabs({ project }: { project: Project }) {
         {tab === "Deck" && <DeckPanel project={project} />}
 
         {tab === "Dub" && <LocalizeVideoPanel project={project} />}
+
+        {tab === "Personalize" && <PersonalizePanel project={project} />}
 
         {tab === "Product Hunt" && (
           <Section title="Product Hunt kit" hint="Gallery, poster, screenshots, and copy — ordered for clarity.">
