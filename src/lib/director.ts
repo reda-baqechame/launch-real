@@ -534,11 +534,12 @@ export function drawCaptionBar(
   w: number,
   h: number,
   primaryColor: string,
+  fontFamily = "system-ui, sans-serif",
 ) {
   if (!text.trim()) return;
   const pad = Math.round(h * 0.04);
   const fontSize = Math.round(h * 0.045);
-  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+  ctx.font = `600 ${fontSize}px ${fontFamily}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
@@ -601,13 +602,14 @@ export function drawIntroCard(
   h: number,
   primary: string,
   bg: string,
+  fontFamily = "system-ui, sans-serif",
 ) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = primary;
   ctx.fillRect(0, 0, w, 6);
   const fontSize = Math.round(h * 0.07);
-  ctx.font = `700 ${fontSize}px system-ui, sans-serif`;
+  ctx.font = `700 ${fontSize}px ${fontFamily}`;
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -625,20 +627,73 @@ export function drawOutroCard(
   primary: string,
   bg: string,
   watermark: boolean,
+  fontFamily = "system-ui, sans-serif",
 ) {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = primary;
   ctx.fillRect(0, h - 6, w, 6);
   const fontSize = Math.round(h * 0.055);
-  ctx.font = `600 ${fontSize}px system-ui, sans-serif`;
+  ctx.font = `600 ${fontSize}px ${fontFamily}`;
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(cta, w / 2, h / 2 - (watermark ? 20 : 0));
   if (watermark) {
-    ctx.font = `400 ${Math.round(h * 0.028)}px system-ui, sans-serif`;
+    ctx.font = `400 ${Math.round(h * 0.028)}px ${fontFamily}`;
     ctx.fillStyle = "rgba(255,255,255,0.5)";
     ctx.fillText("Made with LaunchReel", w / 2, h / 2 + fontSize);
   }
+}
+
+/** Build a canvas font stack from a brand family with safe fallbacks. */
+export function fontStack(family?: string): string {
+  const f = (family || "").trim();
+  if (!f || /system-ui/i.test(f)) return "system-ui, sans-serif";
+  return `'${f.replace(/['"]/g, "")}', system-ui, sans-serif`;
+}
+
+/**
+ * Ensure a brand web font is loaded before canvas rendering. If it's not already
+ * available, inject a Google Fonts stylesheet and wait (best-effort, timed out).
+ * Returns a canvas font stack to use; falls back to system-ui on any failure.
+ */
+export async function ensureBrandFont(family?: string): Promise<string> {
+  const f = (family || "").trim();
+  const stack = fontStack(f);
+  if (!f || /system-ui/i.test(f) || typeof document === "undefined" || !document.fonts) {
+    return stack;
+  }
+  try {
+    if (!document.fonts.check(`600 16px '${f}'`)) {
+      const id = `lr-font-${f.replace(/\W+/g, "-").toLowerCase()}`;
+      if (!document.getElementById(id)) {
+        const link = document.createElement("link");
+        link.id = id;
+        link.rel = "stylesheet";
+        link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@400;600;700&display=swap`;
+        document.head.appendChild(link);
+      }
+      await Promise.race([
+        Promise.all([
+          document.fonts.load(`400 16px '${f}'`),
+          document.fonts.load(`600 16px '${f}'`),
+          document.fonts.load(`700 16px '${f}'`),
+        ]).then(() => document.fonts.ready),
+        new Promise((r) => setTimeout(r, 2500)),
+      ]);
+    }
+  } catch {
+    /* fall back to system-ui */
+  }
+  return stack;
+}
+
+/** Map a recorder MIME type to a file extension. */
+export function extForMimeType(mime?: string): string {
+  if (!mime) return "webm";
+  if (mime.includes("mp4")) return "mp4";
+  if (mime.includes("webm")) return "webm";
+  if (mime.includes("quicktime")) return "mov";
+  return "webm";
 }

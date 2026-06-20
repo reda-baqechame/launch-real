@@ -116,6 +116,7 @@ export function CinematicPanel({ project }: { project: Project }) {
           aspect: r.aspect,
           blobKey: key,
           createdAt: new Date().toISOString(),
+          ext: r.ext,
         });
       }
       patchProject(project.id, { deliverables });
@@ -254,9 +255,9 @@ function DeliverableCard({ deliverable }: { deliverable: DeliverableRender }) {
     if (!url) return;
     const a = document.createElement("a");
     a.href = url;
-    a.download = `launchreel-${deliverable.cut}.webm`;
+    a.download = `launchreel-${deliverable.cut}.${deliverable.ext ?? "webm"}`;
     a.click();
-  }, [url, deliverable.cut]);
+  }, [url, deliverable.cut, deliverable.ext]);
 
   return (
     <Card className="overflow-hidden p-0">

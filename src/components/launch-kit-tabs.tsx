@@ -17,6 +17,7 @@ import { useProjectRenders } from "@/lib/use-project-renders";
 import { useSocialClips } from "@/lib/use-social-clips";
 import { PublishPanel } from "@/components/publish-panel";
 import { downloadBlob } from "@/lib/download-utils";
+import { extForMimeType } from "@/lib/director";
 import { findSharePoster, resolveShareVideo } from "@/lib/share-video";
 import { analyticsWithViews } from "@/lib/analytics-store";
 import type { ShareEventCounts } from "@/lib/share-analytics";
@@ -488,7 +489,10 @@ function VideoTab({ project }: { project: Project }) {
                     void fetch(r.url)
                       .then((res) => res.blob())
                       .then((blob) =>
-                        downloadBlob(blob, `launchreel-${r.aspect.replace(":", "x")}.webm`),
+                        downloadBlob(
+                          blob,
+                          `launchreel-${r.aspect.replace(":", "x")}.${extForMimeType(blob.type)}`,
+                        ),
                       );
                   }}
                   className="rounded-md border border-line px-2.5 py-1 text-xs text-ink-soft hover:border-line-strong hover:text-ink"

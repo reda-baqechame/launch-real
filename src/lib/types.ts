@@ -125,6 +125,8 @@ export interface DeliverableRender {
   aspect: "16:9" | "9:16" | "1:1";
   blobKey: string;
   createdAt: string;
+  /** File extension of the stored container (mp4 or webm). */
+  ext?: string;
 }
 
 export type SeedanceMode = "text-to-video" | "image-to-video" | "first-last-frame";

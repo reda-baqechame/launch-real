@@ -17,6 +17,8 @@ import {
   drawKenBurnsImage,
   drawOutroCard,
   drawZoomedFrame,
+  ensureBrandFont,
+  extForMimeType,
   outputDurationFromTimeline,
   seekVideo,
   segmentAtOutputTime,
@@ -46,7 +48,12 @@ const OUTRO_SEC = 3;
 
 function pickMimeType(): string | undefined {
   if (typeof MediaRecorder === "undefined") return undefined;
+  // Prefer MP4 (H.264/AAC) so Safari/iOS and most social platforms can play the
+  // result; fall back to WebM on Chromium/Firefox where MP4 recording is absent.
   const candidates = [
+    "video/mp4;codecs=h264,aac",
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4",
     "video/webm;codecs=vp9,opus",
     "video/webm;codecs=vp8,opus",
     "video/webm",
@@ -89,6 +96,8 @@ export interface RenderResult {
   aspect: AspectRatio;
   blob: Blob;
   url: string;
+  /** File extension for the chosen container (mp4 or webm). */
+  ext: string;
 }
 
 export interface ProductVideoStudioProps {
@@ -243,7 +252,7 @@ export function ProductVideoStudio({
                 <Pill>{r.aspect}</Pill>
                 <a
                   href={r.url}
-                  download={`launchreel-${r.aspect.replace(":", "x")}.webm`}
+                  download={`launchreel-${r.aspect.replace(":", "x")}.${r.ext}`}
                   className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-soft"
                 >
                   Download
@@ -286,6 +295,7 @@ interface RenderAspectOpts {
   narrationUrl?: string | null;
   narrationStartSec?: number;
   cinematicWindows?: CinematicWindow[];
+  fontFamily?: string;
   onFrame?: (frame: number, totalFrames: number) => void;
 }
 
@@ -308,6 +318,7 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
     narrationUrl,
     narrationStartSec,
     cinematicWindows = [],
+    fontFamily = "system-ui, sans-serif",
     onFrame,
   } = opts;
 
@@ -388,9 +399,9 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
     }
 
     if (tSec < introSec) {
-      drawIntroCard(ctx, script.hook, w, h, brand.primaryColor, brand.backgroundColor);
+      drawIntroCard(ctx, script.hook, w, h, brand.primaryColor, brand.backgroundColor, fontFamily);
     } else if (tSec >= totalSec - outroSec) {
-      drawOutroCard(ctx, script.cta, w, h, brand.primaryColor, brand.backgroundColor, watermark);
+      drawOutroCard(ctx, script.cta, w, h, brand.primaryColor, brand.backgroundColor, watermark, fontFamily);
     } else {
       const hit = segmentAtOutputTime(segments, tSec);
       if (hit) {
@@ -421,7 +432,7 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
           drawZoomedFrame(ctx, video, zoom, w, h);
         }
 
-        drawCaptionBar(ctx, captionsAtTime(captions, tSec), w, h, brand.accentColor);
+        drawCaptionBar(ctx, captionsAtTime(captions, tSec), w, h, brand.accentColor, fontFamily);
       } else {
         ctx.fillStyle = brand.backgroundColor;
         ctx.fillRect(0, 0, w, h);
@@ -563,6 +574,8 @@ export async function renderProductVideo(
   }
 
   const captions = wordCaptions(captionLines);
+  // Load the brand font once so every aspect renders with it.
+  const fontFamily = await ensureBrandFont(brand.font);
   const results: RenderResult[] = [];
 
   for (let ai = 0; ai < aspects.length; ai++) {
@@ -586,12 +599,13 @@ export async function renderProductVideo(
       narrationUrl: opts.narrationUrl,
       narrationStartSec,
       cinematicWindows,
+      fontFamily,
       onFrame: (frame, totalFrames) => {
         const overall = ((ai + frame / totalFrames) / aspects.length) * 100;
         opts.onProgress?.(Math.round(overall));
       },
     });
-    results.push({ aspect, blob, url: URL.createObjectURL(blob) });
+    results.push({ aspect, blob, url: URL.createObjectURL(blob), ext: extForMimeType(blob.type) });
   }
   return results;
 }

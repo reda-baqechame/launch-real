@@ -63,6 +63,7 @@ export interface DeliverableResult {
   label: string;
   aspect: AspectRatio;
   blob: Blob;
+  ext: string;
 }
 
 function clipsForCut(
@@ -101,7 +102,13 @@ export async function renderDeliverables(
       onProgress: (pct) => onProgress?.(cfg.cut, pct),
     });
     if (out[0]) {
-      results.push({ cut: cfg.cut, label: cfg.label, aspect: cfg.aspect, blob: out[0].blob });
+      results.push({
+        cut: cfg.cut,
+        label: cfg.label,
+        aspect: cfg.aspect,
+        blob: out[0].blob,
+        ext: out[0].ext,
+      });
     }
   }
   return results;
