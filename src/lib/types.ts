@@ -129,6 +129,18 @@ export interface DeliverableRender {
 
 export type SeedanceMode = "text-to-video" | "image-to-video" | "first-last-frame";
 
+/** Creative-director critique of a cinematic shot's sampled frames. */
+export interface DirectorScore {
+  motion: number;
+  brandFidelity: number;
+  clarity: number;
+  artifacts: number;
+  total: number;
+  pass: boolean;
+  notes: string[];
+  improvedPrompt?: string;
+}
+
 /** A cinematic AI shot generated via Seedance and stored in IndexedDB. */
 export interface SeedanceClip {
   id: string;
@@ -142,6 +154,8 @@ export interface SeedanceClip {
   /** IndexedDB key for the stored mp4 blob. */
   blobKey: string;
   createdAt: string;
+  /** Creative-director gate result, if the polish loop ran. */
+  director?: DirectorScore;
 }
 
 export interface ScoreBreakdown {

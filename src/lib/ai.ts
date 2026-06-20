@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import type {
   AiAudit,
   DemoMoment,
+  DirectorScore,
   GeneratedCaptions,
   JudgeScores,
   StoryRole,
@@ -384,6 +385,24 @@ export async function fetchRecap(input: { notes: string; durationSec: number }):
   });
   if (!res.ok) await parseApiError(res, "Recap failed");
   return (await res.json()) as RecapResult;
+}
+
+export async function fetchDirectorCritique(input: {
+  frames: { tSec: number; dataUrl: string }[];
+  label: string;
+  placement: string;
+  hook?: string;
+  aspect?: string;
+  brandColors?: { primary?: string; accent?: string; bg?: string };
+}): Promise<DirectorScore> {
+  await assertAiReady();
+  const res = await fetch("/api/director", {
+    method: "POST",
+    headers: await aiJsonHeaders(),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) await parseApiError(res, "Director critique failed");
+  return (await res.json()) as DirectorScore;
 }
 
 export type SeedanceMode = "text-to-video" | "image-to-video" | "first-last-frame";

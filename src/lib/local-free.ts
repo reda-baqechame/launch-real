@@ -200,6 +200,22 @@ export function localFreeRecap(input?: { notes?: string; durationSec?: number })
   };
 }
 
+export function localFreeDirector() {
+  return {
+    motion: 88,
+    brandFidelity: 86,
+    clarity: 90,
+    artifacts: 92,
+    total: 89,
+    pass: true,
+    notes: [
+      "Camera move reads as deliberate and premium.",
+      "Palette tracks the brand colors closely.",
+    ],
+    improvedPrompt: "",
+  };
+}
+
 export function localFreeSeedanceShot() {
   // The client synthesizes a branded placeholder clip locally in local-free
   // mode (no network / no fal.ai key needed). This marker is returned for

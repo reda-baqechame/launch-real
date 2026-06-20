@@ -7,7 +7,7 @@ import { useStore } from "@/lib/store";
 import { useFalKey } from "@/lib/ai";
 import { usePublicConfig } from "@/lib/hosted-config";
 import { CINEMATIC_PRESETS, getPreset } from "@/lib/cinematic-presets";
-import { generateCinematicShot } from "@/lib/cinematic";
+import { generateAndPolishShot } from "@/lib/cinematic";
 import { deliverableKey, getBlobUrl, saveBlob } from "@/lib/footage-store";
 import { useFootageUrl } from "@/lib/use-footage-url";
 import { loadScreenshotUrls } from "@/lib/screenshot-loader";
@@ -54,7 +54,7 @@ export function CinematicPanel({ project }: { project: Project }) {
     setError(null);
     setStatus("starting");
     try {
-      const clip = await generateCinematicShot(
+      const clip = await generateAndPolishShot(
         project.id,
         preset,
         { subject: project.name, brand, note: project.mainHook },
@@ -228,9 +228,21 @@ function ShotCard({ shot }: { shot: SeedanceClip }) {
           Loading…
         </div>
       )}
-      <div className="flex items-center justify-between gap-2 p-3">
-        <p className="text-sm font-medium text-ink">{shot.label}</p>
-        <Pill>{shot.aspect}</Pill>
+      <div className="space-y-1.5 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium text-ink">{shot.label}</p>
+          <Pill>{shot.aspect}</Pill>
+        </div>
+        {shot.director && (
+          <div>
+            <p className={shot.director.pass ? "text-xs text-good" : "text-xs text-warn"}>
+              ★ {shot.director.total} · {shot.director.pass ? "passed director" : "needs work"}
+            </p>
+            {shot.director.notes[0] && (
+              <p className="mt-0.5 text-xs text-ink-mute line-clamp-2">{shot.director.notes[0]}</p>
+            )}
+          </div>
+        )}
       </div>
     </Card>
   );

@@ -116,6 +116,15 @@ export async function getBlobUrl(key: string, kind: BlobRecord["kind"] = "footag
   return blob ? URL.createObjectURL(blob) : null;
 }
 
+export async function deleteBlob(key: string, kind: BlobRecord["kind"] = "footage"): Promise<void> {
+  const store = kind === "render" ? RENDERS : BLOBS;
+  try {
+    await tx(store, "readwrite", (s) => s.delete(key));
+  } catch {
+    /* best-effort cleanup */
+  }
+}
+
 export async function deleteProjectFootage(projectId: string): Promise<void> {
   const db = await openDb();
   await Promise.all(
