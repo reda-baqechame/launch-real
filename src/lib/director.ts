@@ -646,6 +646,101 @@ export function drawOutroCard(
   }
 }
 
+export interface KaraokeWord {
+  text: string;
+  state: "past" | "active" | "future";
+}
+
+/** A window of caption words around the current time, for karaoke rendering. */
+export function karaokeWindow(
+  captions: WordCaption[],
+  tSec: number,
+  count = 6,
+): KaraokeWord[] {
+  if (!captions.length) return [];
+  let live = -1;
+  let lastPassed = -1;
+  for (let i = 0; i < captions.length; i++) {
+    if (tSec >= captions[i].startSec && tSec < captions[i].endSec) live = i;
+    if (captions[i].endSec <= tSec) lastPassed = i;
+  }
+  const activeMark = live !== -1 ? live : lastPassed;
+  if (activeMark === -1) return [];
+
+  const half = Math.floor(count / 2);
+  const end = Math.min(captions.length, Math.max(activeMark + half + 1, count));
+  const start = Math.max(0, end - count);
+  const out: KaraokeWord[] = [];
+  for (let i = start; i < end; i++) {
+    out.push({
+      text: captions[i].text,
+      state: i === activeMark ? "active" : i < activeMark ? "past" : "future",
+    });
+  }
+  return out;
+}
+
+/** Draw word-by-word karaoke captions with the active word highlighted. */
+export function drawKaraokeCaptions(
+  ctx: CanvasRenderingContext2D,
+  words: KaraokeWord[],
+  w: number,
+  h: number,
+  accentColor: string,
+  fontFamily = "system-ui, sans-serif",
+) {
+  if (!words.length) return;
+  const fontSize = Math.round(h * 0.05);
+  const weight = 700;
+  ctx.font = `${weight} ${fontSize}px ${fontFamily}`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+
+  const spaceW = ctx.measureText(" ").width;
+  const maxW = w * 0.84;
+
+  // Greedy-wrap into up to 2 lines.
+  const lines: KaraokeWord[][] = [[]];
+  let lineW = 0;
+  for (const word of words) {
+    const wW = ctx.measureText(word.text).width;
+    if (lineW + wW > maxW && lines[lines.length - 1].length > 0) {
+      if (lines.length >= 2) break;
+      lines.push([]);
+      lineW = 0;
+    }
+    lines[lines.length - 1].push(word);
+    lineW += wW + spaceW;
+  }
+
+  const lineH = fontSize * 1.3;
+  const pad = Math.round(h * 0.035);
+  const boxH = lines.length * lineH + pad * 2;
+  const boxY = h - boxH - pad * 1.5;
+
+  ctx.fillStyle = "rgba(0,0,0,0.66)";
+  roundRect(ctx, w * 0.06, boxY, w * 0.88, boxH, 14);
+  ctx.fill();
+
+  lines.forEach((line, li) => {
+    const widths = line.map((wd) => ctx.measureText(wd.text).width);
+    const total = widths.reduce((a, b) => a + b, 0) + spaceW * (line.length - 1);
+    let x = (w - total) / 2;
+    const y = boxY + pad + lineH * (li + 0.5);
+    line.forEach((wd, i) => {
+      if (wd.state === "active") {
+        ctx.fillStyle = accentColor;
+      } else if (wd.state === "past") {
+        ctx.fillStyle = "#ffffff";
+      } else {
+        ctx.fillStyle = "rgba(255,255,255,0.42)";
+      }
+      ctx.fillText(wd.text, x, y);
+      x += widths[i] + spaceW;
+    });
+  });
+}
+
 /** Build a canvas font stack from a brand family with safe fallbacks. */
 export function fontStack(family?: string): string {
   const f = (family || "").trim();

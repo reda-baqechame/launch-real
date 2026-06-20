@@ -8,11 +8,11 @@ import {
   buildEditTimeline,
   buildScreenshotClips,
   captionLinesFromTimeline,
-  captionsAtTime,
   cinematicAtTime,
   composeCinematicTimeline,
-  drawCaptionBar,
   drawCoverVideo,
+  drawKaraokeCaptions,
+  karaokeWindow,
   drawIntroCard,
   drawKenBurnsImage,
   drawOutroCard,
@@ -335,14 +335,28 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
   const musicBuf =
     (await loadAudioBuffer(audioCtx, "/music/bed.mp3")) ??
     createAmbientPad(audioCtx, totalSec);
-  copyBufferToMix(audioCtx, musicBuf, mixBuffer, 0, 0.12);
 
+  // Mix narration first so we know the window to duck the music under.
+  let duckStart = -1;
+  let duckEnd = -1;
   if (narrationUrl) {
     const narrBuf = await loadAudioBuffer(audioCtx, narrationUrl);
     if (narrBuf) {
-      copyBufferToMix(audioCtx, narrBuf, mixBuffer, narrationStartSec ?? introSec, 0.85);
+      const start = narrationStartSec ?? introSec;
+      copyBufferToMix(audioCtx, narrBuf, mixBuffer, start, 0.92);
+      duckStart = start;
+      duckEnd = start + narrBuf.duration;
     }
   }
+
+  // Looped, ducked music bed — quieter under the voiceover, fuller otherwise.
+  copyMusicDucked(audioCtx, musicBuf, mixBuffer, totalSec, duckStart, duckEnd, 0.18, 0.06);
+
+  // Subtle transition SFX on each cut (segment boundaries + cinematic entries).
+  const cutTimes = new Set<number>([Number(introSec.toFixed(2))]);
+  segments.forEach((s) => cutTimes.add(Number(s.outputStartSec.toFixed(2))));
+  cinematicWindows.forEach((win) => cutTimes.add(Number(win.startSec.toFixed(2))));
+  for (const t of cutTimes) addTransitionTick(audioCtx, mixBuffer, t, 0.12);
 
   const mixSource = audioCtx.createBufferSource();
   mixSource.buffer = mixBuffer;
@@ -432,7 +446,7 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
           drawZoomedFrame(ctx, video, zoom, w, h);
         }
 
-        drawCaptionBar(ctx, captionsAtTime(captions, tSec), w, h, brand.accentColor, fontFamily);
+        drawKaraokeCaptions(ctx, karaokeWindow(captions, tSec), w, h, brand.accentColor, fontFamily);
       } else {
         ctx.fillStyle = brand.backgroundColor;
         ctx.fillRect(0, 0, w, h);
@@ -461,6 +475,60 @@ function copyBufferToMix(
     const destData = dest.getChannelData(ch);
     for (let i = 0; i < srcData.length && offset + i < destData.length; i++) {
       destData[offset + i] += srcData[i] * gain;
+    }
+  }
+}
+
+/** Add a looped music bed that ducks (gets quieter) under the voiceover window. */
+function copyMusicDucked(
+  ctx: AudioContext,
+  src: AudioBuffer,
+  dest: AudioBuffer,
+  totalSec: number,
+  duckStartSec: number,
+  duckEndSec: number,
+  baseGain: number,
+  duckGain: number,
+) {
+  const sr = ctx.sampleRate;
+  const totalLen = Math.min(dest.length, Math.ceil(totalSec * sr));
+  const ramp = Math.max(1, Math.floor(0.3 * sr));
+  const ds = duckStartSec * sr;
+  const de = duckEndSec * sr;
+  const lo = Math.min(baseGain, duckGain);
+  const hi = Math.max(baseGain, duckGain);
+  for (let ch = 0; ch < dest.numberOfChannels; ch++) {
+    const out = dest.getChannelData(ch);
+    const srcCh = src.getChannelData(Math.min(ch, src.numberOfChannels - 1));
+    const srcLen = srcCh.length;
+    if (!srcLen) continue;
+    for (let i = 0; i < totalLen; i++) {
+      let g = baseGain;
+      if (duckStartSec >= 0 && i >= ds - ramp && i <= de + ramp) {
+        if (i < ds) g = baseGain + (duckGain - baseGain) * ((i - (ds - ramp)) / ramp);
+        else if (i > de) g = duckGain + (baseGain - duckGain) * ((i - de) / ramp);
+        else g = duckGain;
+        g = Math.max(lo, Math.min(hi, g));
+      }
+      out[i] += srcCh[i % srcLen] * g;
+    }
+  }
+}
+
+/** Synthesize a short, soft whoosh/tick at a cut point. */
+function addTransitionTick(ctx: AudioContext, dest: AudioBuffer, atSec: number, gain: number) {
+  const sr = ctx.sampleRate;
+  const start = Math.floor(atSec * sr);
+  if (start < 0) return;
+  const len = Math.floor(0.12 * sr);
+  for (let ch = 0; ch < dest.numberOfChannels; ch++) {
+    const out = dest.getChannelData(ch);
+    let prev = 0;
+    for (let i = 0; i < len && start + i < out.length; i++) {
+      const env = Math.pow(1 - i / len, 2.5);
+      const noise = Math.random() * 2 - 1;
+      prev = prev * 0.85 + noise * 0.15; // simple low-pass → softer
+      out[start + i] += prev * env * gain;
     }
   }
 }
