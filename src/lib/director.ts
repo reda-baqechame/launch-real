@@ -528,6 +528,91 @@ export function drawZoomedFrame(
   ctx.drawImage(video, sx, sy, sw, sh, 0, 0, destW, destH);
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return `rgba(0,0,0,${alpha})`;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
+/** The inset rect where framed footage is drawn (padding around the screen). */
+export function footageInset(w: number, h: number): { x: number; y: number; w: number; h: number; r: number; pad: number } {
+  const pad = Math.round(Math.min(w, h) * 0.05);
+  const iw = w - pad * 2;
+  const ih = h - pad * 2;
+  return { x: pad, y: pad, w: iw, h: ih, r: Math.round(Math.min(iw, ih) * 0.03), pad };
+}
+
+/**
+ * Draw the screen recording with a Screen-Studio-style frame: brand-gradient
+ * background, padding, rounded corners, and a soft drop shadow. `zoom` crops the
+ * source the same way `drawZoomedFrame` does (cursor-follow zoom preserved).
+ */
+export function drawFramedFootage(
+  ctx: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  zoom: { x: number; y: number; scale: number },
+  w: number,
+  h: number,
+  bg: string,
+  primary: string,
+) {
+  // Background + subtle brand vignette.
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0, hexToRgba(primary, 0.16));
+  grad.addColorStop(0.5, hexToRgba(primary, 0.04));
+  grad.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  const ins = footageInset(w, h);
+
+  // Drop shadow behind the screen panel.
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.5)";
+  ctx.shadowBlur = Math.round(ins.pad * 0.9);
+  ctx.shadowOffsetY = Math.round(ins.pad * 0.3);
+  ctx.fillStyle = "#000000";
+  roundRect(ctx, ins.x, ins.y, ins.w, ins.h, ins.r);
+  ctx.fill();
+  ctx.restore();
+
+  // Clip to rounded panel and draw the zoomed footage crop inside.
+  ctx.save();
+  roundRect(ctx, ins.x, ins.y, ins.w, ins.h, ins.r);
+  ctx.clip();
+  const vw = video.videoWidth || ins.w;
+  const vh = video.videoHeight || ins.h;
+  const sw = vw / zoom.scale;
+  const sh = vh / zoom.scale;
+  const sx = Math.max(0, Math.min(vw - sw, zoom.x * vw - sw / 2));
+  const sy = Math.max(0, Math.min(vh - sh, zoom.y * vh - sh / 2));
+  ctx.drawImage(video, sx, sy, sw, sh, ins.x, ins.y, ins.w, ins.h);
+  ctx.restore();
+}
+
+/** Expanding ring at a click point (cx,cy in canvas px), progress 0→1. */
+export function drawClickRipple(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  progress: number,
+  maxRadius: number,
+  accent: string,
+) {
+  const p = Math.max(0, Math.min(1, progress));
+  ctx.save();
+  ctx.globalAlpha = (1 - p) * 0.6;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = Math.max(2, maxRadius * 0.06);
+  ctx.beginPath();
+  ctx.arc(cx, cy, maxRadius * p, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function drawCaptionBar(
   ctx: CanvasRenderingContext2D,
   text: string,

@@ -10,13 +10,15 @@ import {
   captionLinesFromTimeline,
   cinematicAtTime,
   composeCinematicTimeline,
+  drawClickRipple,
   drawCoverVideo,
+  drawFramedFootage,
   drawKaraokeCaptions,
+  footageInset,
   karaokeWindow,
   drawIntroCard,
   drawKenBurnsImage,
   drawOutroCard,
-  drawZoomedFrame,
   ensureBrandFont,
   extForMimeType,
   outputDurationFromTimeline,
@@ -296,6 +298,7 @@ interface RenderAspectOpts {
   narrationStartSec?: number;
   cinematicWindows?: CinematicWindow[];
   fontFamily?: string;
+  clicks?: ClickEvent[];
   onFrame?: (frame: number, totalFrames: number) => void;
 }
 
@@ -319,6 +322,7 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
     narrationStartSec,
     cinematicWindows = [],
     fontFamily = "system-ui, sans-serif",
+    clicks = [],
     onFrame,
   } = opts;
 
@@ -441,9 +445,23 @@ async function renderAspect(opts: RenderAspectOpts): Promise<Blob> {
           const localMs = progress * segment.outputDurationSec * 1000;
           const zoom = zoomAtTime(segment.zoomKeyframes, localMs);
 
-          ctx.fillStyle = brand.backgroundColor;
-          ctx.fillRect(0, 0, w, h);
-          drawZoomedFrame(ctx, video, zoom, w, h);
+          drawFramedFootage(ctx, video, zoom, w, h, brand.backgroundColor, brand.primaryColor);
+
+          // Click ripple highlights within ~0.5s after each click.
+          const ins = footageInset(w, h);
+          for (const c of clicks) {
+            const dt = sourceTime * 1000 - c.tMs;
+            if (dt >= 0 && dt <= 500) {
+              drawClickRipple(
+                ctx,
+                ins.x + c.x * ins.w,
+                ins.y + c.y * ins.h,
+                dt / 500,
+                Math.min(ins.w, ins.h) * 0.12,
+                brand.accentColor,
+              );
+            }
+          }
         }
 
         drawKaraokeCaptions(ctx, karaokeWindow(captions, tSec), w, h, brand.accentColor, fontFamily);
@@ -668,6 +686,7 @@ export async function renderProductVideo(
       narrationStartSec,
       cinematicWindows,
       fontFamily,
+      clicks,
       onFrame: (frame, totalFrames) => {
         const overall = ((ai + frame / totalFrames) / aspects.length) * 100;
         opts.onProgress?.(Math.round(overall));
