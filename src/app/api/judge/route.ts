@@ -5,6 +5,7 @@ import {
   isNextResponse,
   jsonError,
   parseJsonBody,
+  enforceRateLimit,
 } from "@/lib/api-helpers";
 import { resolveAnthropicKey } from "@/lib/server-keys";
 import { isLocalFreeRequest, localFreeJudge } from "@/lib/local-free";
@@ -33,6 +34,9 @@ export async function POST(req: Request) {
   if (isLocalFreeRequest(req)) {
     return NextResponse.json(localFreeJudge());
   }
+
+  const limited = enforceRateLimit(req, "judge");
+  if (limited) return limited;
 
   const key = await resolveAnthropicKey(req);
   if (isNextResponse(key)) return key;

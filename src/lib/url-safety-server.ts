@@ -83,3 +83,20 @@ export async function validatePublicHttpsUrl(raw: string): Promise<URL> {
 
   return url;
 }
+
+/**
+ * Validate a user-supplied media URL before forwarding it to a third-party
+ * provider (fal.ai). Allows `data:` URIs (self-contained, no fetch) and
+ * SSRF-guards any `http(s)` URL via `validatePublicHttpsUrl`. Returns the safe
+ * URL string or throws.
+ */
+export async function assertSafeMediaUrl(raw: string): Promise<string> {
+  const trimmed = raw.trim();
+  if (!trimmed) throw new Error("Empty media URL.");
+  if (trimmed.startsWith("data:")) {
+    if (trimmed.length > 12_000_000) throw new Error("Inline media is too large.");
+    return trimmed;
+  }
+  const url = await validatePublicHttpsUrl(trimmed);
+  return url.toString();
+}

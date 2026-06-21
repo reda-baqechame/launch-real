@@ -4,12 +4,16 @@ import { isHostedSaas } from "@/lib/cloud/config";
 import { withDb } from "@/lib/db/client";
 import { addCredits, consumeCredit, ensureAppUser, getAppUser } from "@/lib/db/users";
 import {
+  enforceRateLimit,
   isNextResponse,
   jsonError,
+  logServerError,
   parseJsonBody,
   requireNonEmpty,
 } from "@/lib/api-helpers";
+import { LIMITS, trimText } from "@/lib/api-limits";
 import { resolveSeedanceKey } from "@/lib/server-keys";
+import { assertSafeMediaUrl } from "@/lib/url-safety-server";
 import {
   pollSeedanceShot,
   submitSeedanceShot,
@@ -30,6 +34,9 @@ export async function POST(req: Request) {
     return NextResponse.json(localFreeSeedanceShot());
   }
 
+  const limited = enforceRateLimit(req, "seedance");
+  if (limited) return limited;
+
   const key = await resolveSeedanceKey(req);
   if (isNextResponse(key)) return key;
 
@@ -47,6 +54,7 @@ export async function POST(req: Request) {
 
   const prompt = requireNonEmpty(body.prompt, "prompt");
   if (isNextResponse(prompt)) return prompt;
+  const safePrompt = trimText(prompt, LIMITS.promptChars);
 
   const mode: SeedanceMode = MODES.includes(body.mode as SeedanceMode)
     ? (body.mode as SeedanceMode)
@@ -54,6 +62,16 @@ export async function POST(req: Request) {
   const aspect: Aspect = ASPECTS.includes(body.aspect as Aspect)
     ? (body.aspect as Aspect)
     : "16:9";
+
+  // SSRF-guard any seed image URLs before forwarding to fal.ai.
+  let imageUrl: string | undefined;
+  let lastFrameUrl: string | undefined;
+  try {
+    if (body.imageUrl) imageUrl = await assertSafeMediaUrl(body.imageUrl);
+    if (body.lastFrameUrl) lastFrameUrl = await assertSafeMediaUrl(body.lastFrameUrl);
+  } catch (err) {
+    return jsonError(err instanceof Error ? err.message : "Invalid media URL.", 400);
+  }
 
   // In hosted SaaS a cinematic shot costs a credit (refunded if dispatch fails).
   let creditUserId: string | null = null;
@@ -75,13 +93,13 @@ export async function POST(req: Request) {
 
   const params: SeedanceParams = {
     mode,
-    prompt,
+    prompt: safePrompt,
     aspect,
     durationSec: Math.max(2, Math.round(body.durationSec ?? 4)),
     resolution: body.resolution,
-    imageUrl: body.imageUrl,
-    lastFrameUrl: body.lastFrameUrl,
-    camera: body.camera,
+    imageUrl,
+    lastFrameUrl,
+    camera: body.camera ? trimText(body.camera, 400) : undefined,
   };
 
   try {
@@ -89,6 +107,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ requestId, mode, status: "queued" });
   } catch (err) {
     if (creditUserId) await withDb(async (db) => addCredits(db, creditUserId!, 1));
+    logServerError("seedance", err);
     return jsonError(err instanceof Error ? err.message : "Seedance dispatch failed.", 502);
   }
 }

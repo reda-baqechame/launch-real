@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
-import { isNextResponse, jsonError, parseJsonBody, requireNonEmpty } from "@/lib/api-helpers";
+import {
+  enforceRateLimit,
+  isNextResponse,
+  jsonError,
+  logServerError,
+  parseJsonBody,
+  requireNonEmpty,
+} from "@/lib/api-helpers";
 import { resolveSeedanceKey } from "@/lib/server-keys";
+import { assertSafeMediaUrl } from "@/lib/url-safety-server";
 import { pollAvatar, submitAvatar } from "@/lib/avatar-client";
 import { isLocalFreeRequest, localFreeAvatar } from "@/lib/local-free";
 
@@ -11,21 +19,35 @@ export async function POST(req: Request) {
     return NextResponse.json(localFreeAvatar());
   }
 
+  const limited = enforceRateLimit(req, "avatar");
+  if (limited) return limited;
+
   const key = await resolveSeedanceKey(req);
   if (isNextResponse(key)) return key;
 
   const body = await parseJsonBody<{ imageUrl?: string; audioUrl?: string }>(req);
   if (isNextResponse(body)) return body;
 
-  const imageUrl = requireNonEmpty(body.imageUrl, "imageUrl");
-  if (isNextResponse(imageUrl)) return imageUrl;
-  const audioUrl = requireNonEmpty(body.audioUrl, "audioUrl");
-  if (isNextResponse(audioUrl)) return audioUrl;
+  const rawImage = requireNonEmpty(body.imageUrl, "imageUrl");
+  if (isNextResponse(rawImage)) return rawImage;
+  const rawAudio = requireNonEmpty(body.audioUrl, "audioUrl");
+  if (isNextResponse(rawAudio)) return rawAudio;
+
+  // SSRF-guard both URLs before forwarding to fal.ai (allows data: URIs).
+  let imageUrl: string;
+  let audioUrl: string;
+  try {
+    imageUrl = await assertSafeMediaUrl(rawImage);
+    audioUrl = await assertSafeMediaUrl(rawAudio);
+  } catch (err) {
+    return jsonError(err instanceof Error ? err.message : "Invalid media URL.", 400);
+  }
 
   try {
     const { requestId } = await submitAvatar(key, { imageUrl, audioUrl });
     return NextResponse.json({ requestId, status: "queued" });
   } catch (err) {
+    logServerError("avatar", err);
     return jsonError(err instanceof Error ? err.message : "Avatar dispatch failed.", 502);
   }
 }

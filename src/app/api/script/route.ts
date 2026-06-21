@@ -6,6 +6,7 @@ import {
   jsonError,
   parseJsonBody,
   requireNonEmpty,
+  enforceRateLimit,
 } from "@/lib/api-helpers";
 import { resolveAnthropicKey } from "@/lib/server-keys";
 import { QUALITY_SELF_CHECK, scriptSystem } from "@/lib/ai-prompts";
@@ -67,6 +68,9 @@ export async function POST(req: Request) {
     if (isNextResponse(body)) return body;
     return NextResponse.json(localFreeScript(body));
   }
+
+  const limited = enforceRateLimit(req, "script");
+  if (limited) return limited;
 
   const key = await resolveAnthropicKey(req);
   if (isNextResponse(key)) return key;

@@ -1,8 +1,40 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { LIMITS } from "@/lib/api-limits";
 
 export function jsonError(message: string, status = 400): NextResponse {
   return NextResponse.json({ error: message }, { status });
+}
+
+/**
+ * Per-IP rate limit for expensive AI routes (abuse protection, not billing).
+ * Returns a 429 NextResponse when over the limit, else null. In-memory =
+ * per-instance; for multi-instance scale, back `rateLimit` with Upstash. // TODO
+ */
+export function enforceRateLimit(
+  req: Request,
+  name: string,
+  perMin: number = LIMITS.aiRateLimitPerMin,
+): NextResponse | null {
+  const ok = rateLimit(`${name}:${clientIp(req)}`, perMin, 60_000);
+  return ok ? null : jsonError("Too many requests — slow down and try again.", 429);
+}
+
+/** Structured, secret-safe server log for a failed route (+ optional Sentry). */
+export function logServerError(route: string, err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  // Never logs request bodies or API keys — message only.
+  console.error(JSON.stringify({ level: "error", route, message, at: new Date().toISOString() }));
+  const sentry = (globalThis as { Sentry?: { captureException?: (e: unknown) => void } }).Sentry;
+  if (sentry?.captureException) sentry.captureException(err);
+}
+
+/** Validate a user-supplied array length against LIMITS.maxArrayItems. */
+export function capArray<T>(value: T[] | undefined, field: string, max = LIMITS.maxArrayItems): T[] | NextResponse {
+  if (!Array.isArray(value)) return [];
+  if (value.length > max) return jsonError(`Too many items in "${field}" (max ${max}).`, 400);
+  return value;
 }
 
 export function isNextResponse(value: unknown): value is NextResponse {
@@ -31,6 +63,7 @@ export function requireNonEmpty(value: unknown, field: string): string | NextRes
 }
 
 export function handleAnthropicError(err: unknown, fallback = "Request failed."): NextResponse {
+  logServerError("anthropic", err);
   if (err instanceof Anthropic.APIError) {
     const status = err.status ?? 502;
     const safe =

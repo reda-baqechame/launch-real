@@ -8,6 +8,12 @@ export const LIMITS = {
   phDraftHtmlChars: 2_000_000,
   syncProjectsBatch: 50,
   renderAspects: ["16:9", "9:16", "1:1"] as const,
+  /** Max chars for any single user-supplied text field on AI routes. */
+  promptChars: 8_000,
+  /** Max items in any user-supplied array (lines, moments, variants). */
+  maxArrayItems: 50,
+  /** Per-IP requests/min for expensive AI routes. */
+  aiRateLimitPerMin: 30,
 } as const;
 
 export function trimText(value: string, max: number): string {

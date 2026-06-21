@@ -6,6 +6,7 @@ import {
   jsonError,
   parseJsonBody,
   requireNonEmpty,
+  enforceRateLimit,
 } from "@/lib/api-helpers";
 import { resolveAnthropicKey } from "@/lib/server-keys";
 import { REWRITE_MODE_GUIDES } from "@/lib/ai-prompts";
@@ -26,6 +27,9 @@ export async function POST(req: Request) {
     if (isNextResponse(body)) return body;
     return NextResponse.json(localFreeRewrite(body));
   }
+
+  const limited = enforceRateLimit(req, "rewrite");
+  if (limited) return limited;
 
   const key = await resolveAnthropicKey(req);
   if (isNextResponse(key)) return key;
