@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
-import { handleAnthropicError, isNextResponse, jsonError, parseJsonBody } from "@/lib/api-helpers";
+import { handleAnthropicError, isNextResponse, jsonError, parseJsonBody, enforceRateLimit } from "@/lib/api-helpers";
 import { resolveAnthropicKey } from "@/lib/server-keys";
 import { PROMPT_PREAMBLE } from "@/lib/ai-prompts";
 import { isLocalFreeRequest, localFreeTranslate } from "@/lib/local-free";
@@ -25,6 +25,9 @@ export async function POST(req: Request) {
   if (isLocalFreeRequest(req)) {
     return NextResponse.json(localFreeTranslate(body));
   }
+
+  const limited = enforceRateLimit(req, "translate");
+  if (limited) return limited;
 
   const key = await resolveAnthropicKey(req);
   if (isNextResponse(key)) return key;

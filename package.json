@@ -13,6 +13,7 @@
     "start:railway": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "eslint",
     "verify": "npm run build && npm run lint",
+    "smoke:ci": "node scripts/smoke-local-free.mjs",
     "smoke:agent-local": "powershell -ExecutionPolicy Bypass -File scripts/smoke-agent-local.ps1",
     "smoke:production-guard": "powershell -ExecutionPolicy Bypass -File scripts/smoke-production-guard.ps1",
     "smoke:real-providers": "powershell -ExecutionPolicy Bypass -File scripts/smoke-real-providers.ps1",

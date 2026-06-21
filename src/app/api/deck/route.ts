@@ -5,6 +5,7 @@ import {
   isNextResponse,
   jsonError,
   parseJsonBody,
+  enforceRateLimit,
 } from "@/lib/api-helpers";
 import { resolveAnthropicKey } from "@/lib/server-keys";
 import { DECK_SYSTEM, QUALITY_SELF_CHECK } from "@/lib/ai-prompts";
@@ -39,6 +40,9 @@ export async function POST(req: Request) {
     if (isNextResponse(body)) return body;
     return NextResponse.json(localFreeDeck(body));
   }
+
+  const limited = enforceRateLimit(req, "deck");
+  if (limited) return limited;
 
   const key = await resolveAnthropicKey(req);
   if (isNextResponse(key)) return key;

@@ -20,3 +20,5 @@ jobs:
         run: npm ci
       - name: Build and lint
         run: npm run verify
+      - name: Local-free API smoke
+        run: npm run smoke:ci

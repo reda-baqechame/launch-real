@@ -79,6 +79,10 @@ function IntegrationsPanel({
             ? "Trigger.dev dispatch enabled for cloud renders."
             : "Client-side render by default. Set TRIGGER_* for cloud queue."}
         </p>
+        <p className="mt-1 text-xs text-ink-mute">
+          Cloud renders cover the base video (16:9 / 9:16 / 1:1). Cinematic shots, the
+          AI presenter, and the three deliverables render in your browser.
+        </p>
         {status?.cloudSync && (
           <Button
             variant="secondary"
