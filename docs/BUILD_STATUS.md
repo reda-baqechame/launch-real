@@ -123,6 +123,15 @@ Setup: `docs/PHASE10.md`
 - CI: `.github/workflows/verify.yml`
 - `.env.example` with all cloud vars including `RENDER_WEBHOOK_SECRET`
 
+### Post-P6 — Operator + deploy hardening
+
+- Durable operator job API (`POST/GET /api/agent/jobs`, approve/cancel) with action ledger, page observations, confidence, approval gates, and credential redaction
+- Production auth required for agent routes and operator jobs
+- Railway deploy config (`railway.json`, `npm run start:railway`, `npm run smoke:railway`)
+- Node 22 runtime pin in `package.json` `engines`
+- Env scaffolding (`npm run prepare:env`) and paste guide (`docs/API_KEYS_TO_PASTE.md`)
+- Operator evals (`npm run test:agent-evals`) and security scan (`npm run security:scan`)
+
 ---
 
 ## API reference
@@ -140,8 +149,12 @@ Setup: `docs/PHASE10.md`
 | `POST /api/rewrite` | Copy voice rewrite |
 | `POST /api/localize` | Market localization |
 | `POST /api/tts` | TTS (OpenAI / ElevenLabs) |
-| `POST /api/agent` | Playwright URL capture |
-| `POST /api/agent/plan` | Agent capture plan |
+| `POST /api/agent` | Playwright URL capture (120s) |
+| `POST /api/agent/plan` | Agent capture plan (credentials not sent — `hasCredentials` only) |
+| `POST /api/agent/jobs` | Durable operator job — multi-step Playwright + Anthropic (300s, auth in production) |
+| `GET /api/agent/jobs/[id]` | Poll operator job status, action ledger, editor brief |
+| `POST /api/agent/jobs/[id]/approve` | Approve risky operator actions (payment, destructive, etc.) |
+| `POST /api/agent/jobs/[id]/cancel` | Cancel in-flight operator job |
 | `POST /api/ph-draft` | PH draft URL prefill |
 
 Keys are stored client-side (localStorage) — never sent to LaunchReel servers except as request headers to your own API routes.
@@ -199,6 +212,8 @@ Postgres tables (see `db/schema.sql`): `app_users`, `projects`, `oauth_connectio
 | `src/lib/changelog-kit.ts` | PRD/changelog → copy assets |
 | `src/lib/share-analytics.ts` | Local + remote share events |
 | `src/lib/cloud/*` | S3, Stripe, Trigger, Lambda, YouTube, OAuth |
+| `src/lib/agent-operator.ts` | Durable operator loop, risky-action approval, credential redaction |
+| `src/lib/agent-operator-store.ts` | Operator job persistence + sanitization |
 | `workers/render-launch-video.ts` | Trigger.dev task stub |
 
 ---

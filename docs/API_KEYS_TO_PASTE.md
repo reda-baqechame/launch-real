@@ -42,6 +42,9 @@ npm run verify
 npm run smoke:agent-local
 npm run smoke:production-guard
 npm run smoke:real-providers
+npm run smoke:railway
 ```
 
 `npm run smoke:real-providers` intentionally fails fast until the required production keys above are present.
+
+`npm run smoke:railway` requires `$env:RAILWAY_APP_URL` (or `-BaseUrl`) and confirms production guardrails on a live Railway URL.

@@ -95,6 +95,27 @@ RENDER_WEBHOOK_SECRET=...   # random string for render completion webhook
 OAUTH_STATE_SECRET=...      # CSRF for OAuth (defaults to CLERK_SECRET_KEY)
 ```
 
+## 6b. Deploy to Railway
+
+1. Connect [github.com/reda-baqechame/launch-real](https://github.com/reda-baqechame/launch-real) in the Railway dashboard.
+2. Railway reads `railway.json`:
+   - **Build:** `npm ci && npm run build`
+   - **Start:** `npm run start:railway` (binds `0.0.0.0` on `$PORT`)
+3. Set service variables — see [`docs/RAILWAY_ENV.md`](RAILWAY_ENV.md) for minimum live deploy vs full SaaS.
+4. Required for any public deploy:
+   - `NEXT_PUBLIC_APP_URL=https://your-app.up.railway.app`
+   - `LAUNCHREEL_LOCAL_FREE_MODE=false`
+5. After deploy:
+
+```powershell
+$env:RAILWAY_APP_URL="https://your-app.up.railway.app"
+npm run smoke:railway
+# stricter hosted-provider check:
+npm run smoke:railway -- -RequireProviders
+```
+
+Railway uses **Node 22** via `package.json` `engines`. Playwright/Chromium is only needed for agent capture routes, not for a basic hosted UI smoke.
+
 ## 7. Real app agent testing
 
 For same-day local QA against a real app URL, use the dedicated agent smoke lane:
