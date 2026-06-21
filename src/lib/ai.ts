@@ -453,7 +453,7 @@ export async function fetchBrandExtract(url: string): Promise<Partial<BrandKit>>
   return (await res.json()) as Partial<BrandKit>;
 }
 
-export type SeedanceMode = "text-to-video" | "image-to-video" | "first-last-frame";
+export type SeedanceMode = "text-to-video" | "image-to-video";
 
 async function seedanceHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { "content-type": "application/json" };
@@ -472,7 +472,6 @@ export interface SeedanceSubmitRequest {
   durationSec: number;
   resolution?: "720p" | "1080p";
   imageUrl?: string;
-  lastFrameUrl?: string;
   camera?: string;
 }
 

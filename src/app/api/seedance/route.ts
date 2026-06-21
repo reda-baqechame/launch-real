@@ -24,7 +24,7 @@ import { isLocalFreeRequest, localFreeSeedanceShot } from "@/lib/local-free";
 
 export const runtime = "nodejs";
 
-const MODES: SeedanceMode[] = ["text-to-video", "image-to-video", "first-last-frame"];
+const MODES: SeedanceMode[] = ["text-to-video", "image-to-video"];
 const ASPECTS = ["16:9", "9:16", "1:1"] as const;
 
 type Aspect = (typeof ASPECTS)[number];
@@ -47,7 +47,6 @@ export async function POST(req: Request) {
     durationSec?: number;
     resolution?: "720p" | "1080p";
     imageUrl?: string;
-    lastFrameUrl?: string;
     camera?: string;
   }>(req);
   if (isNextResponse(body)) return body;
@@ -63,12 +62,10 @@ export async function POST(req: Request) {
     ? (body.aspect as Aspect)
     : "16:9";
 
-  // SSRF-guard any seed image URLs before forwarding to fal.ai.
+  // SSRF-guard the seed image URL before forwarding to fal.ai.
   let imageUrl: string | undefined;
-  let lastFrameUrl: string | undefined;
   try {
     if (body.imageUrl) imageUrl = await assertSafeMediaUrl(body.imageUrl);
-    if (body.lastFrameUrl) lastFrameUrl = await assertSafeMediaUrl(body.lastFrameUrl);
   } catch (err) {
     return jsonError(err instanceof Error ? err.message : "Invalid media URL.", 400);
   }
@@ -98,7 +95,6 @@ export async function POST(req: Request) {
     durationSec: Math.max(2, Math.round(body.durationSec ?? 4)),
     resolution: body.resolution,
     imageUrl,
-    lastFrameUrl,
     camera: body.camera ? trimText(body.camera, 400) : undefined,
   };
 
