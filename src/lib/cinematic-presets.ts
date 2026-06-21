@@ -121,7 +121,7 @@ export const CINEMATIC_PRESETS: CinematicPreset[] = [
     id: "match-cut-transition",
     label: "Match-Cut Transition",
     useCase: "Seamless motion bridge between two product moments.",
-    mode: "first-last-frame",
+    mode: "image-to-video",
     placement: "transition",
     durationSec: 2,
     recommendedAspect: ["16:9", "9:16", "1:1"],

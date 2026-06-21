@@ -11,10 +11,10 @@ import type { SeedanceMode } from "./types";
 
 const FAL_QUEUE_BASE = "https://queue.fal.run";
 
+// fal model ids (verified): NO `fal-ai/` prefix for the ByteDance Seedance routes.
 const MODEL_BY_MODE: Record<SeedanceMode, string> = {
-  "text-to-video": "fal-ai/bytedance/seedance-2.0/text-to-video",
-  "image-to-video": "fal-ai/bytedance/seedance-2.0/image-to-video",
-  "first-last-frame": "fal-ai/bytedance/seedance-2.0/first-last-frame",
+  "text-to-video": "bytedance/seedance-2.0/text-to-video",
+  "image-to-video": "bytedance/seedance-2.0/image-to-video",
 };
 
 export interface SeedanceParams {
@@ -23,9 +23,8 @@ export interface SeedanceParams {
   aspect: "16:9" | "9:16" | "1:1";
   durationSec: number;
   resolution?: "720p" | "1080p";
-  /** Data URL or https URL of the seed image (image-to-video / first frame). */
+  /** Data URL or https URL of the seed image (image-to-video). */
   imageUrl?: string;
-  lastFrameUrl?: string;
   camera?: string;
 }
 
@@ -55,10 +54,6 @@ function payloadFor(params: SeedanceParams): Record<string, unknown> {
   if (params.camera) body.camera_movement = params.camera;
   if (params.mode === "image-to-video" && params.imageUrl) {
     body.image_url = params.imageUrl;
-  }
-  if (params.mode === "first-last-frame") {
-    if (params.imageUrl) body.first_frame_url = params.imageUrl;
-    if (params.lastFrameUrl) body.last_frame_url = params.lastFrameUrl;
   }
   return body;
 }

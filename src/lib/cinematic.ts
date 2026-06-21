@@ -9,9 +9,8 @@ import type { DirectorScore, SeedanceClip } from "./types";
 
 export interface GenerateShotOptions {
   aspect?: "16:9" | "9:16" | "1:1";
-  /** Data URL / https URL of a seed image (image-to-video, first frame). */
+  /** Data URL / https URL of a seed image (image-to-video). */
   seedImageUrl?: string;
-  lastFrameUrl?: string;
   resolution?: "720p" | "1080p";
   /** Polling cap; Seedance usually completes in 30-120s. */
   timeoutMs?: number;
@@ -128,7 +127,6 @@ export async function generateCinematicShot(
       durationSec: preset.durationSec,
       resolution: opts.resolution,
       imageUrl: opts.seedImageUrl,
-      lastFrameUrl: opts.lastFrameUrl,
       camera: preset.camera,
     });
 

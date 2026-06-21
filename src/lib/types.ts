@@ -149,7 +149,7 @@ export interface DeliverableRender {
   ext?: string;
 }
 
-export type SeedanceMode = "text-to-video" | "image-to-video" | "first-last-frame";
+export type SeedanceMode = "text-to-video" | "image-to-video";
 
 /** Creative-director critique of a cinematic shot's sampled frames. */
 export interface DirectorScore {
